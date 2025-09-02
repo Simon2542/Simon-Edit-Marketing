@@ -1,0 +1,248 @@
+[
+  {
+    "week": "2024/wk44",
+    "totalCost": 37.61914893617021,
+    "leadsTotal": 17,
+    "leadsPrice": 2.2128911138923653
+  },
+  {
+    "week": "2024/wk45",
+    "totalCost": 960.5744680851063,
+    "leadsTotal": 55,
+    "leadsPrice": 17.464990328820114
+  },
+  {
+    "week": "2024/wk46",
+    "totalCost": 705.0914893617021,
+    "leadsTotal": 32,
+    "leadsPrice": 22.03410904255319
+  },
+  {
+    "week": "2024/wk47",
+    "totalCost": 471.36170212765956,
+    "leadsTotal": 22,
+    "leadsPrice": 21.425531914893618
+  },
+  {
+    "week": "2024/wk48",
+    "totalCost": 15.044680851063827,
+    "leadsTotal": 12,
+    "leadsPrice": 1.253723404255319
+  },
+  {
+    "week": "2024/wk49",
+    "totalCost": 0,
+    "leadsTotal": 9,
+    "leadsPrice": 0
+  },
+  {
+    "week": "2024/wk50",
+    "totalCost": 0,
+    "leadsTotal": 9,
+    "leadsPrice": 0
+  },
+  {
+    "week": "2024/wk51",
+    "totalCost": 0,
+    "leadsTotal": 3,
+    "leadsPrice": 0
+  },
+  {
+    "week": "2025/wk02",
+    "totalCost": 351.08297872340427,
+    "leadsTotal": 7,
+    "leadsPrice": 50.154711246200606
+  },
+  {
+    "week": "2025/wk03",
+    "totalCost": 476.6595744680851,
+    "leadsTotal": 27,
+    "leadsPrice": 17.65405831363278
+  },
+  {
+    "week": "2025/wk04",
+    "totalCost": 373.968085106383,
+    "leadsTotal": 17,
+    "leadsPrice": 21.998122653316646
+  },
+  {
+    "week": "2025/wk05",
+    "totalCost": 457.64468085106375,
+    "leadsTotal": 22,
+    "leadsPrice": 20.802030947775627
+  },
+  {
+    "week": "2025/wk06",
+    "totalCost": 459.4297872340426,
+    "leadsTotal": 24,
+    "leadsPrice": 19.142907801418442
+  },
+  {
+    "week": "2025/wk07",
+    "totalCost": 450.9595744680851,
+    "leadsTotal": 15,
+    "leadsPrice": 30.063971631205675
+  },
+  {
+    "week": "2025/wk08",
+    "totalCost": 390.75531914893617,
+    "leadsTotal": 28,
+    "leadsPrice": 13.955547112462005
+  },
+  {
+    "week": "2025/wk09",
+    "totalCost": 460.8978723404256,
+    "leadsTotal": 20,
+    "leadsPrice": 23.044893617021277
+  },
+  {
+    "week": "2025/wk10",
+    "totalCost": 456.3212765957447,
+    "leadsTotal": 27,
+    "leadsPrice": 16.900788022064617
+  },
+  {
+    "week": "2025/wk11",
+    "totalCost": 456.2893617021276,
+    "leadsTotal": 17,
+    "leadsPrice": 26.840550688360448
+  },
+  {
+    "week": "2025/wk12",
+    "totalCost": 389.59148936170203,
+    "leadsTotal": 25,
+    "leadsPrice": 15.583659574468081
+  },
+  {
+    "week": "2025/wk13",
+    "totalCost": 341.3531914893617,
+    "leadsTotal": 31,
+    "leadsPrice": 11.011393273850377
+  },
+  {
+    "week": "2025/wk14",
+    "totalCost": 398.3446808510638,
+    "leadsTotal": 23,
+    "leadsPrice": 17.31933395004625
+  },
+  {
+    "week": "2025/wk15",
+    "totalCost": 477.44255319148925,
+    "leadsTotal": 36,
+    "leadsPrice": 13.262293144208034
+  },
+  {
+    "week": "2025/wk16",
+    "totalCost": 493.4702127659574,
+    "leadsTotal": 24,
+    "leadsPrice": 20.561258865248227
+  },
+  {
+    "week": "2025/wk17",
+    "totalCost": 484.64042553191484,
+    "leadsTotal": 17,
+    "leadsPrice": 28.50826032540676
+  },
+  {
+    "week": "2025/wk18",
+    "totalCost": 549.8234042553191,
+    "leadsTotal": 23,
+    "leadsPrice": 23.90536540240518
+  },
+  {
+    "week": "2025/wk19",
+    "totalCost": 488.0276595744681,
+    "leadsTotal": 29,
+    "leadsPrice": 16.828539985326486
+  },
+  {
+    "week": "2025/wk20",
+    "totalCost": 516.2212765957446,
+    "leadsTotal": 24,
+    "leadsPrice": 21.509219858156026
+  },
+  {
+    "week": "2025/wk21",
+    "totalCost": 456.0468085106383,
+    "leadsTotal": 29,
+    "leadsPrice": 15.725752017608217
+  },
+  {
+    "week": "2025/wk22",
+    "totalCost": 497.7106382978724,
+    "leadsTotal": 27,
+    "leadsPrice": 18.433727344365643
+  },
+  {
+    "week": "2025/wk23",
+    "totalCost": 667.8531914893616,
+    "leadsTotal": 37,
+    "leadsPrice": 18.050086256469232
+  },
+  {
+    "week": "2025/wk24",
+    "totalCost": 470.2765957446809,
+    "leadsTotal": 13,
+    "leadsPrice": 36.175122749590834
+  },
+  {
+    "week": "2025/wk25",
+    "totalCost": 325.28510638297877,
+    "leadsTotal": 15,
+    "leadsPrice": 21.68567375886525
+  },
+  {
+    "week": "2025/wk26",
+    "totalCost": 437.5170212765957,
+    "leadsTotal": 22,
+    "leadsPrice": 19.887137330754353
+  },
+  {
+    "week": "2025/wk27",
+    "totalCost": 583.0574468085106,
+    "leadsTotal": 21,
+    "leadsPrice": 27.76464032421479
+  },
+  {
+    "week": "2025/wk28",
+    "totalCost": 598.5723404255319,
+    "leadsTotal": 20,
+    "leadsPrice": 29.928617021276594
+  },
+  {
+    "week": "2025/wk29",
+    "totalCost": 683.2191489361702,
+    "leadsTotal": 28,
+    "leadsPrice": 24.400683890577508
+  },
+  {
+    "week": "2025/wk30",
+    "totalCost": 644.5063829787234,
+    "leadsTotal": 21,
+    "leadsPrice": 30.69078014184397
+  },
+  {
+    "week": "2025/wk31",
+    "totalCost": 759.8489361702127,
+    "leadsTotal": 27,
+    "leadsPrice": 28.142553191489363
+  },
+  {
+    "week": "2025/wk32",
+    "totalCost": 698.4127659574468,
+    "leadsTotal": 23,
+    "leadsPrice": 30.36577243293247
+  },
+  {
+    "week": "2025/wk33",
+    "totalCost": 414.4957446808511,
+    "leadsTotal": 21,
+    "leadsPrice": 19.73789260385005
+  },
+  {
+    "week": "2025/wk34",
+    "totalCost": 586.1063829787233,
+    "leadsTotal": 7,
+    "leadsPrice": 83.72948328267476
+  }
+]

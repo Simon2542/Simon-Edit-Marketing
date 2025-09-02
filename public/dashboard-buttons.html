@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Buttons Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .buttons { display: flex; gap: 10px; margin: 20px 0; }
+        button { 
+            padding: 8px 16px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            cursor: pointer;
+            background: white;
+        }
+        button:hover { background: #f0f0f0; }
+        .upload-btn { 
+            background: linear-gradient(to right, #751FAE, #EF3C99);
+            color: white;
+            border: none;
+        }
+        .upload-btn:hover { 
+            background: linear-gradient(to right, #6919A6, #E73691);
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Button Test</h1>
+    
+    <div class="buttons">
+        <button onclick="toggleFullscreen()">Fullscreen</button>
+        <button onclick="refreshData()">Refresh Data</button>
+        <button class="upload-btn" onclick="toggleUpload()">Upload Excel</button>
+    </div>
+    
+    <div id="status"></div>
+    <div id="upload-area" style="display: none; padding: 20px; border: 1px solid #ccc; margin-top: 20px;">
+        <h3>Excel Upload</h3>
+        <input type="file" accept=".xlsx,.xlsm" id="fileInput">
+        <button onclick="uploadFile()">Upload</button>
+    </div>
+
+    <script>
+        let isFullscreen = false;
+        let showUpload = false;
+        
+        function toggleFullscreen() {
+            if (!isFullscreen) {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+        
+        async function refreshData() {
+            document.getElementById('status').innerHTML = 'Refreshing...';
+            try {
+                const response = await fetch('/api/refresh-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('status').innerHTML = 'Data refreshed successfully! (ruofan → Yuki)';
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    document.getElementById('status').innerHTML = 'Refresh failed: ' + result.error;
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 'Network error: ' + error.message;
+            }
+        }
+        
+        function toggleUpload() {
+            showUpload = !showUpload;
+            document.getElementById('upload-area').style.display = showUpload ? 'block' : 'none';
+        }
+        
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            document.getElementById('status').innerHTML = 'Uploading...';
+            
+            try {
+                const response = await fetch('/api/excel-data', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('status').innerHTML = 'Upload successful!';
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    document.getElementById('status').innerHTML = 'Upload failed: ' + result.error;
+                }
+            } catch (error) {
+                document.getElementById('status').innerHTML = 'Upload error: ' + error.message;
+            }
+        }
+        
+        // Listen for fullscreen changes
+        document.addEventListener('fullscreenchange', () => {
+            isFullscreen = !!document.fullscreenElement;
+        });
+        
+        console.log('Dashboard buttons loaded successfully');
+    </script>
+</body>
+</html>

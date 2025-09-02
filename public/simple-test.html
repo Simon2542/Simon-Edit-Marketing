@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test</title>
+</head>
+<body>
+    <h1>Simple JavaScript Test</h1>
+    <button id="testBtn">Click Me</button>
+    <p id="result">No clicks yet</p>
+    
+    <script>
+        let count = 0;
+        const btn = document.getElementById('testBtn');
+        const result = document.getElementById('result');
+        
+        btn.addEventListener('click', function() {
+            count++;
+            result.textContent = 'Clicked ' + count + ' times';
+            alert('Button clicked!');
+        });
+        
+        console.log('Script loaded successfully');
+    </script>
+</body>
+</html>
