@@ -215,8 +215,8 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
     return (
       <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50">
         <CardHeader>
-          <CardTitle className="text-lg font-bold bg-gradient-to-r from-[#751FAE] to-[#8B5CF6] bg-clip-text text-transparent font-montserrat">
-            📊 {title}
+          <CardTitle className="text-xl font-semibold text-gray-900 mb-6 font-montserrat">
+            {title}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -233,8 +233,8 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
       <CardHeader>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <CardTitle className="text-lg font-bold bg-gradient-to-r from-[#751FAE] to-[#8B5CF6] bg-clip-text text-transparent font-montserrat">
-              📊 Monthly {currentMetricInfo.label}
+            <CardTitle className="text-xl font-semibold text-gray-900 mb-6 font-montserrat">
+              Monthly {currentMetricInfo.label}
             </CardTitle>
           </div>
           

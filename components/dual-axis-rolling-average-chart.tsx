@@ -228,8 +228,8 @@ export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Avera
     return (
       <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50">
         <CardHeader>
-          <CardTitle className="text-lg font-bold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">
-            📈 {title}
+          <CardTitle className="text-xl font-semibold text-gray-900 mb-6 font-montserrat">
+            {title}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -246,8 +246,8 @@ export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Avera
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-lg font-bold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">
-              📈 7-Day Rolling Average Analysis: Cost & {metricConfig.label}
+            <CardTitle className="text-xl font-semibold text-gray-900 mb-6 font-montserrat">
+              7-Day Rolling Average Analysis: Cost & {metricConfig.label}
             </CardTitle>
             <p className="text-sm text-gray-600 font-montserrat font-light mt-1">
               7-day rolling average comparison analysis. Left Y-axis: Cost, Right Y-axis: {metricConfig.label}

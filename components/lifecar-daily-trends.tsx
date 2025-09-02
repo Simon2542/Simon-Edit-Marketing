@@ -46,28 +46,9 @@ export function LifeCarDailyTrends({ data, title = "Daily Performance Trends" }:
   return (
     <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-bold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">
-          📈 {title}
+        <CardTitle className="text-xl font-semibold text-gray-900 mb-6 font-montserrat">
+          {title}
         </CardTitle>
-        
-        {/* 数据系列筛选按钮 */}
-        <div className="flex flex-wrap gap-2 mt-4">
-          {seriesConfig.map((series) => (
-            <Button
-              key={series.key}
-              variant={visibleSeries[series.key as keyof typeof visibleSeries] ? "default" : "outline"}
-              size="sm"
-              onClick={() => toggleSeries(series.key as keyof typeof visibleSeries)}
-              className={`transition-all duration-200 ${
-                visibleSeries[series.key as keyof typeof visibleSeries]
-                  ? 'bg-gradient-to-r from-[#751FAE] to-[#EF3C99] text-white hover:from-[#6919A6] hover:to-[#E73691]'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-xs font-medium">{series.label}</span>
-            </Button>
-          ))}
-        </div>
       </CardHeader>
       <CardContent>
         <div className="h-80">

@@ -175,9 +175,6 @@ export function LifeCarWeeklyAnalysis({ data, title = "Weekly Performance Detail
         {weeklyMetrics.map((weekData, index) => (
           <div key={index} className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-4">
             <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
-              <div className="p-1.5 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-                <span className="text-purple-600 text-sm">📊</span>
-              </div>
               <div className="flex-1">
                 <h4 className="text-2xl font-black text-[#751FAE] font-montserrat">
                   Week of {formatWeekEndDate(weekData.weekEndDate)}

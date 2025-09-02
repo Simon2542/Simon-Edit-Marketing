@@ -482,8 +482,8 @@ export default function Home() {
         { id: 'broker', name: 'Campaign Overview', icon: '🚗', desc: 'Overall campaign performance' },
         { id: 'cost', name: 'Trend Overview', icon: '💰', desc: 'Spend and efficiency metrics' },
         { id: 'cost-interaction', name: 'Day of Week Analyse', icon: '🎯', desc: 'Day of week performance analysis' },
-        { id: 'activity-heatmap', name: 'Monthly Analysis', icon: '🔥', desc: 'Time-based performance patterns' },
-        { id: 'weekly-analysis', name: 'Weekly Analysis', icon: '📈', desc: 'Weekly performance metrics' }
+        { id: 'weekly-analysis', name: 'Weekly Analysis', icon: '📈', desc: 'Weekly performance metrics' },
+        { id: 'activity-heatmap', name: 'Monthly Analysis', icon: '🔥', desc: 'Time-based performance patterns' }
       ];
     } else {
       return [
@@ -992,7 +992,10 @@ export default function Home() {
               <>
                 {activeModule === 'broker' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">🚗 LifeCAR Performance Overview</h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      LifeCAR Performance Overview
+                    </h2>
                     
                     <LifeCarDailyTrends data={filteredLifeCarData} title="Daily Marketing Performance" />
                   </div>
@@ -1000,7 +1003,10 @@ export default function Home() {
 
                 {activeModule === 'cost' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">💰 Trend Overview</h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      Trend Overview
+                    </h2>
                     
                     <LifeCarMonthlySummary 
                       data={lifeCarMonthlyData} 
@@ -1013,7 +1019,10 @@ export default function Home() {
 
                 {activeModule === 'cost-interaction' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">🎯 Day of Week Analysis</h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      Day of Week Analysis
+                    </h2>
                     
                     {/* Daily Views & Cost Chart - affected by time filter */}
                     {filteredLifeCarData && filteredLifeCarData.length > 0 && (
@@ -1042,7 +1051,10 @@ export default function Home() {
 
                 {activeModule === 'activity-heatmap' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">🔥 Monthly Analysis</h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      Monthly Analysis
+                    </h2>
                     
                     {/* Monthly Views & Cost Chart - always uses all data */}
                     {lifeCarData && lifeCarData.length > 0 && (
@@ -1067,7 +1079,10 @@ export default function Home() {
 
                 {activeModule === 'weekly-analysis' && (
                   <div className="max-w-7xl mx-auto mb-4">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">📈 Weekly Analysis</h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      Weekly Analysis
+                    </h2>
                     <LifeCarWeeklyAnalysis 
                       data={lifeCarData} 
                       title="Weekly Performance Metrics"
