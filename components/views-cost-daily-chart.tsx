@@ -141,39 +141,67 @@ const RelativeMetricLabel = (props: any) => {
   // Try to get the data point - payload might be undefined, so try other props
   const dataPoint = payload || (data && data[index])
   
-  // Production ready - no debug logs
-  
   if (!value || value === 0) return null
   
   const text = value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toString()
   const width = config?.dataKey === 'followers' ? 36 : 30
   const height = 14
   
-  // Default positioning fallback
-  let metricShouldBeAbove = y < 200
+  // Enhanced fallback positioning with multiple strategies
+  let metricShouldBeAbove = false
   
-  // Point-specific positioning: compare this data point's values
-  if (dataPoint && scales?.costScale && scales?.metricScale && config) {
-    const costValue = dataPoint.cost || 0
-    const metricValue = dataPoint[config.dataKey] || 0
-    
-    // Get Y-axis maximum values for this specific data point
-    const costMaxValue = scales.costScale.domain?.[1] || 1000
-    const metricMaxValue = scales.metricScale.domain?.[1] || 100
-    
-    // Calculate position ratio relative to axis maximum for THIS data point only
-    const costRatio = costValue / costMaxValue
-    const metricRatio = metricValue / metricMaxValue
-    
-    // For THIS specific point: if metric ratio is higher, metric label goes above
-    metricShouldBeAbove = metricRatio > costRatio
-    
-    // Calculation complete
+  try {
+    // Strategy 1: Use scales if available and valid
+    if (dataPoint && scales?.costScale && scales?.metricScale && config && 
+        scales.costScale.domain && scales.metricScale.domain &&
+        Array.isArray(scales.costScale.domain) && Array.isArray(scales.metricScale.domain)) {
+      
+      const costValue = dataPoint.cost || 0
+      const metricValue = dataPoint[config.dataKey] || 0
+      
+      // Get Y-axis maximum values with additional validation
+      const costMaxValue = scales.costScale.domain[1]
+      const metricMaxValue = scales.metricScale.domain[1]
+      
+      if (costMaxValue > 0 && metricMaxValue > 0) {
+        // Calculate position ratio relative to axis maximum for THIS data point only
+        const costRatio = costValue / costMaxValue
+        const metricRatio = metricValue / metricMaxValue
+        
+        // For THIS specific point: if metric ratio is higher, metric label goes above
+        metricShouldBeAbove = metricRatio > costRatio
+      } else {
+        throw new Error('Invalid scale domains')
+      }
+    } else {
+      throw new Error('Scales not available')
+    }
+  } catch (error) {
+    // Strategy 2: Fallback to data value comparison when scales are unavailable
+    if (dataPoint && config) {
+      const costValue = dataPoint.cost || 0
+      const metricValue = dataPoint[config.dataKey] || 0
+      
+      // Simple comparison: if metric value is higher than cost, place above
+      // This works because most metrics are in higher ranges than costs
+      if (config.dataKey === 'views') {
+        metricShouldBeAbove = metricValue > (costValue * 10) // Views are usually much higher
+      } else if (config.dataKey === 'likes') {
+        metricShouldBeAbove = metricValue > costValue // Likes can be higher than cost
+      } else { // followers
+        metricShouldBeAbove = metricValue > (costValue / 2) // Followers typically lower than cost
+      }
+    } else {
+      // Strategy 3: Position-based fallback (production-safe)
+      // Use y position relative to a reasonable chart height assumption
+      const assumedChartHeight = 400
+      metricShouldBeAbove = y > (assumedChartHeight * 0.6)
+    }
   }
   
   const labelY = metricShouldBeAbove ? y - height - 8 : y + 8
   
-  // Use the color directly from config
+  // Use the color directly from config with fallback
   const color = config?.color || '#3CBDE5'
   
   return (
@@ -209,34 +237,63 @@ const RelativeCostLabel = (props: any) => {
   // Try to get the data point - payload might be undefined, so try other props  
   const dataPoint = payload || (data && data[index])
   
-  // Production ready - no debug logs
-  
   if (!value || value === 0) return null
   
   const text = `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
   const width = 36
   const height = 14
   
-  // Default positioning fallback
-  let costShouldBeAbove = y > 200
+  // Enhanced fallback positioning with multiple strategies
+  let costShouldBeAbove = false
   
-  // Point-specific positioning: compare this data point's values
-  if (dataPoint && scales?.costScale && scales?.metricScale && metricConfig) {
-    const costValue = dataPoint.cost || 0
-    const metricValue = dataPoint[metricConfig.dataKey] || 0
-    
-    // Get Y-axis maximum values for this specific data point
-    const costMaxValue = scales.costScale.domain?.[1] || 1000
-    const metricMaxValue = scales.metricScale.domain?.[1] || 100
-    
-    // Calculate position ratio relative to axis maximum for THIS data point only
-    const costRatio = costValue / costMaxValue
-    const metricRatio = metricValue / metricMaxValue
-    
-    // For THIS specific point: if cost ratio is higher, cost label goes above
-    costShouldBeAbove = costRatio > metricRatio
-    
-    // Calculation complete
+  try {
+    // Strategy 1: Use scales if available and valid
+    if (dataPoint && scales?.costScale && scales?.metricScale && metricConfig &&
+        scales.costScale.domain && scales.metricScale.domain &&
+        Array.isArray(scales.costScale.domain) && Array.isArray(scales.metricScale.domain)) {
+      
+      const costValue = dataPoint.cost || 0
+      const metricValue = dataPoint[metricConfig.dataKey] || 0
+      
+      // Get Y-axis maximum values with additional validation
+      const costMaxValue = scales.costScale.domain[1]
+      const metricMaxValue = scales.metricScale.domain[1]
+      
+      if (costMaxValue > 0 && metricMaxValue > 0) {
+        // Calculate position ratio relative to axis maximum for THIS data point only
+        const costRatio = costValue / costMaxValue
+        const metricRatio = metricValue / metricMaxValue
+        
+        // For THIS specific point: if cost ratio is higher, cost label goes above
+        costShouldBeAbove = costRatio > metricRatio
+      } else {
+        throw new Error('Invalid scale domains')
+      }
+    } else {
+      throw new Error('Scales not available')
+    }
+  } catch (error) {
+    // Strategy 2: Fallback to data value comparison when scales are unavailable
+    if (dataPoint && metricConfig) {
+      const costValue = dataPoint.cost || 0
+      const metricValue = dataPoint[metricConfig.dataKey] || 0
+      
+      // Simple comparison: if cost value is higher than metric, place above
+      // This is the inverse of the metric label logic
+      if (metricConfig.dataKey === 'views') {
+        costShouldBeAbove = (costValue * 10) > metricValue // Reverse of views logic
+      } else if (metricConfig.dataKey === 'likes') {
+        costShouldBeAbove = costValue > metricValue // Reverse of likes logic
+      } else { // followers
+        costShouldBeAbove = (costValue / 2) > metricValue // Reverse of followers logic
+      }
+    } else {
+      // Strategy 3: Position-based fallback (production-safe)
+      // Use y position relative to a reasonable chart height assumption
+      // For cost, use opposite logic from metric labels
+      const assumedChartHeight = 400
+      costShouldBeAbove = y < (assumedChartHeight * 0.4)
+    }
   }
   
   const labelY = costShouldBeAbove ? y - height - 8 : y + 8
