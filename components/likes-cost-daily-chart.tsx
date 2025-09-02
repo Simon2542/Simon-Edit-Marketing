@@ -122,27 +122,40 @@ function calculateNiceScale(minValue: number, maxValue: number, targetTicks: num
 let likesLabelPositions: Array<{x: number, y: number, width: number, height: number}> = []
 let costLabelPositions: Array<{x: number, y: number, width: number, height: number}> = []
 
-// Label components that position based on relative line position
+// Label components with point-by-point positioning
 const RelativeLikesLabel = (props: any) => {
-  const { x, y, value, index, payload, viewBox } = props
+  const { x, y, value, index, payload, viewBox, scales, data } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props
+  const dataPoint = payload || (data && data[index])
+  
   if (!value || value === 0) return null
   
   const text = value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toString()
   const width = 30
   const height = 14
   
-  // Calculate relative position of likes line (right Y-axis)
-  // Get chart boundaries
-  const chartHeight = viewBox?.height || 300
-  const chartTop = viewBox?.y || 0
+  // Default positioning fallback
+  let likesShouldBeAbove = y < 200
   
-  // Calculate relative position (0 = top, 1 = bottom)
-  const relativePosition = (y - chartTop) / chartHeight
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.likesScale) {
+    const costValue = dataPoint.cost || 0
+    const likesValue = dataPoint.likes || 0
+    
+    // Get Y-axis maximum values for this specific data point
+    const costMaxValue = scales.costScale.domain?.[1] || 1000
+    const likesMaxValue = scales.likesScale.domain?.[1] || 100
+    
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const likesRatio = likesValue / likesMaxValue
+    
+    // For THIS specific point: if likes ratio is higher, likes label goes above
+    likesShouldBeAbove = likesRatio > costRatio
+  }
   
-  // Likes label goes above if point is in upper half, below if in lower half
-  const shouldPlaceAbove = relativePosition < 0.5
-  
-  const labelY = shouldPlaceAbove ? y - height - 8 : y + 8
+  const labelY = likesShouldBeAbove ? y - height - 8 : y + 8
   
   return (
     <g>
@@ -172,26 +185,38 @@ const RelativeLikesLabel = (props: any) => {
 }
 
 const RelativeCostLabel = (props: any) => {
-  const { x, y, value, index, payload, viewBox } = props
+  const { x, y, value, index, payload, viewBox, scales, data } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props  
+  const dataPoint = payload || (data && data[index])
+  
   if (!value || value === 0) return null
   
   const text = `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
   const width = 36
   const height = 14
   
-  // Calculate relative position of cost line (left Y-axis)
-  // Get chart boundaries
-  const chartHeight = viewBox?.height || 300
-  const chartTop = viewBox?.y || 0
+  // Default positioning fallback
+  let costShouldBeAbove = y > 200
   
-  // Calculate relative position (0 = top, 1 = bottom)
-  const relativePosition = (y - chartTop) / chartHeight
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.likesScale) {
+    const costValue = dataPoint.cost || 0
+    const likesValue = dataPoint.likes || 0
+    
+    // Get Y-axis maximum values for this specific data point
+    const costMaxValue = scales.costScale.domain?.[1] || 1000
+    const likesMaxValue = scales.likesScale.domain?.[1] || 100
+    
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const likesRatio = likesValue / likesMaxValue
+    
+    // For THIS specific point: if cost ratio is higher, cost label goes above
+    costShouldBeAbove = costRatio > likesRatio
+  }
   
-  // Cost label goes below if point is in upper half, above if in lower half  
-  // (opposite of likes to avoid overlap when lines are close)
-  const shouldPlaceAbove = relativePosition >= 0.5
-  
-  const labelY = shouldPlaceAbove ? y - height - 8 : y + 8
+  const labelY = costShouldBeAbove ? y - height - 8 : y + 8
   
   return (
     <g>
@@ -455,7 +480,7 @@ export function LikesCostDailyChart({ data, title = "Daily Likes & Cost Analysis
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={RelativeCostLabel} position="top" />
+                <LabelList content={(props) => <RelativeCostLabel {...props} scales={{likesScale, costScale}} data={chartData} />} position="top" />
               </Line>
               
               <Line
@@ -467,7 +492,7 @@ export function LikesCostDailyChart({ data, title = "Daily Likes & Cost Analysis
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={RelativeLikesLabel} position="top" />
+                <LabelList content={(props) => <RelativeLikesLabel {...props} scales={{likesScale, costScale}} data={chartData} />} position="top" />
               </Line>
             </LineChart>
           </ResponsiveContainer>

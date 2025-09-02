@@ -29,7 +29,6 @@ import { InteractionDonutChart } from "@/components/engagement-donut-chart"
 import { ClickRateInteractionRateRollingChart } from "@/components/clickrate-engagementrate-rolling-chart"
 import { ViewsCostDailyChart } from "@/components/views-cost-daily-chart"
 import { LikesCostDailyChart } from "@/components/likes-cost-daily-chart"
-import { FollowersCostDailyChart } from "@/components/followers-cost-daily-chart"
 import { CostPerFollowerDailyChart } from "@/components/cost-per-follower-daily-chart"
 import { LifeCarWeeklyAnalysis } from "@/components/lifecar-weekly-analysis"
 import { MonthlyViewsCostChart } from "@/components/monthly-views-cost-chart"
@@ -1021,17 +1020,6 @@ export default function Home() {
                       <ViewsCostDailyChart 
                         data={filteredLifeCarData} 
                         title="Daily Views & Cost Trend"
-                        startDate={startDate}
-                        endDate={endDate}
-                        allData={lifeCarData}
-                      />
-                    )}
-                    
-                    {/* Daily New Followers & Cost Chart - affected by time filter */}
-                    {filteredLifeCarData && filteredLifeCarData.length > 0 && (
-                      <FollowersCostDailyChart 
-                        data={filteredLifeCarData} 
-                        title="Daily New Followers & Cost Trend"
                         startDate={startDate}
                         endDate={endDate}
                         allData={lifeCarData}

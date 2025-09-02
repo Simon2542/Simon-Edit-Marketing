@@ -106,21 +106,41 @@ function calculateNiceScale(minValue: number, maxValue: number, targetTicks: num
 
 // Label components with simple position-based logic
 const RelativeMetricLabel = (props: any) => {
-  const { x, y, value, viewBox, color } = props
+  const { x, y, value, index, payload, viewBox, config, scales, data, color } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props
+  const dataPoint = payload || (data && data[index])
+  
   if (!value || value === 0) return null
   
   const text = value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toString()
-  const width = 36
+  const width = config?.dataKey === 'followers' ? 36 : 30
   const height = 14
   
-  // Simple logic: if point is in upper half of chart, label goes above
-  // if point is in lower half, label goes below
-  const chartHeight = viewBox?.height || 300
-  const chartTop = viewBox?.y || 0
-  const relativePosition = (y - chartTop) / chartHeight
+  // Default positioning fallback
+  let metricShouldBeAbove = y < 200
   
-  const shouldPlaceAbove = relativePosition < 0.5
-  const labelY = shouldPlaceAbove ? y - height - 8 : y + 8
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.metricScale && config) {
+    const costValue = dataPoint.cost || 0
+    const metricValue = dataPoint[config.dataKey] || 0
+    
+    // Get Y-axis maximum values for this specific data point
+    const costMaxValue = scales.costScale.domain?.[1] || 1000
+    const metricMaxValue = scales.metricScale.domain?.[1] || 100
+    
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const metricRatio = metricValue / metricMaxValue
+    
+    // For THIS specific point: if metric ratio is higher, metric label goes above
+    metricShouldBeAbove = metricRatio > costRatio
+  }
+  
+  const labelY = metricShouldBeAbove ? y - height - 8 : y + 8
+  
+  // Use the color directly from config or fallback
+  const labelColor = config?.color || color || '#3CBDE5'
   
   return (
     <g>
@@ -129,8 +149,8 @@ const RelativeMetricLabel = (props: any) => {
         y={labelY}
         width={width}
         height={height}
-        fill={`${color}CC`}
-        stroke={color}
+        fill={`${labelColor}CC`}
+        stroke={labelColor}
         strokeWidth="1"
         rx="3"
       />
@@ -150,22 +170,38 @@ const RelativeMetricLabel = (props: any) => {
 }
 
 const RelativeCostLabel = (props: any) => {
-  const { x, y, value, viewBox } = props
+  const { x, y, value, index, payload, viewBox, metricConfig, scales, data } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props  
+  const dataPoint = payload || (data && data[index])
+  
   if (!value || value === 0) return null
   
   const text = `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
   const width = 36
   const height = 14
   
-  // Opposite logic from metric labels to avoid overlap
-  // if point is in upper half of chart, label goes below
-  // if point is in lower half, label goes above
-  const chartHeight = viewBox?.height || 300
-  const chartTop = viewBox?.y || 0
-  const relativePosition = (y - chartTop) / chartHeight
+  // Default positioning fallback
+  let costShouldBeAbove = y > 200
   
-  const shouldPlaceAbove = relativePosition > 0.5
-  const labelY = shouldPlaceAbove ? y - height - 8 : y + 8
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.metricScale && metricConfig) {
+    const costValue = dataPoint.cost || 0
+    const metricValue = dataPoint[metricConfig.dataKey] || 0
+    
+    // Get Y-axis maximum values for this specific data point
+    const costMaxValue = scales.costScale.domain?.[1] || 1000
+    const metricMaxValue = scales.metricScale.domain?.[1] || 100
+    
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const metricRatio = metricValue / metricMaxValue
+    
+    // For THIS specific point: if cost ratio is higher, cost label goes above
+    costShouldBeAbove = costRatio > metricRatio
+  }
+  
+  const labelY = costShouldBeAbove ? y - height - 8 : y + 8
   
   return (
     <g>
@@ -480,7 +516,7 @@ export function MonthlyViewsCostChart({ data, title = "Monthly Metrics & Cost An
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={RelativeCostLabel} position="top" />
+                <LabelList content={(props) => <RelativeCostLabel {...props} metricConfig={metricConfig} scales={{metricScale, costScale}} data={chartData} />} position="top" />
               </Line>
               
               <Line
@@ -492,7 +528,7 @@ export function MonthlyViewsCostChart({ data, title = "Monthly Metrics & Cost An
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={(props) => <RelativeMetricLabel {...props} color={metricConfig.color} />} position="top" />
+                <LabelList content={(props) => <RelativeMetricLabel {...props} config={metricConfig} scales={{metricScale, costScale}} data={chartData} color={metricConfig.color} />} position="top" />
               </Line>
             </LineChart>
           </ResponsiveContainer>

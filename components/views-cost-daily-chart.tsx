@@ -134,9 +134,15 @@ function calculateNiceScale(minValue: number, maxValue: number, targetTicks: num
   }
 }
 
-// Label components with distance-based positioning
+// Label components with point-by-point positioning
 const RelativeMetricLabel = (props: any) => {
-  const { x, y, value, index, payload, viewBox, config, scales } = props
+  const { x, y, value, index, payload, viewBox, config, scales, data } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props
+  const dataPoint = payload || (data && data[index])
+  
+  // Production ready - no debug logs
+  
   if (!value || value === 0) return null
   
   const text = value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toString()
@@ -146,23 +152,23 @@ const RelativeMetricLabel = (props: any) => {
   // Default positioning fallback
   let metricShouldBeAbove = y < 200
   
-  // Distance-based positioning if we have all required data
-  if (payload && scales?.costScale && scales?.metricScale && config) {
-    const costValue = payload.cost || 0
-    const metricValue = payload[config.dataKey] || 0
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.metricScale && config) {
+    const costValue = dataPoint.cost || 0
+    const metricValue = dataPoint[config.dataKey] || 0
     
-    // Get Y-axis maximum values
+    // Get Y-axis maximum values for this specific data point
     const costMaxValue = scales.costScale.domain?.[1] || 1000
     const metricMaxValue = scales.metricScale.domain?.[1] || 100
     
-    // Calculate distance from maximum as a ratio
-    // Smaller ratio = closer to top, larger ratio = farther from top
-    const costDistanceRatio = (costMaxValue - costValue) / costMaxValue
-    const metricDistanceRatio = (metricMaxValue - metricValue) / metricMaxValue
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const metricRatio = metricValue / metricMaxValue
     
-    // Distance ratio closer to 0 = closer to Y-axis top = label above
-    // Distance ratio closer to 1 = farther from Y-axis top = label below
-    metricShouldBeAbove = metricDistanceRatio < costDistanceRatio
+    // For THIS specific point: if metric ratio is higher, metric label goes above
+    metricShouldBeAbove = metricRatio > costRatio
+    
+    // Calculation complete
   }
   
   const labelY = metricShouldBeAbove ? y - height - 8 : y + 8
@@ -198,7 +204,13 @@ const RelativeMetricLabel = (props: any) => {
 }
 
 const RelativeCostLabel = (props: any) => {
-  const { x, y, value, index, payload, viewBox, metricConfig, scales } = props
+  const { x, y, value, index, payload, viewBox, metricConfig, scales, data } = props
+  
+  // Try to get the data point - payload might be undefined, so try other props  
+  const dataPoint = payload || (data && data[index])
+  
+  // Production ready - no debug logs
+  
   if (!value || value === 0) return null
   
   const text = `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
@@ -208,23 +220,23 @@ const RelativeCostLabel = (props: any) => {
   // Default positioning fallback
   let costShouldBeAbove = y > 200
   
-  // Distance-based positioning if we have all required data
-  if (payload && scales?.costScale && scales?.metricScale && metricConfig) {
-    const costValue = payload.cost || 0
-    const metricValue = payload[metricConfig.dataKey] || 0
+  // Point-specific positioning: compare this data point's values
+  if (dataPoint && scales?.costScale && scales?.metricScale && metricConfig) {
+    const costValue = dataPoint.cost || 0
+    const metricValue = dataPoint[metricConfig.dataKey] || 0
     
-    // Get Y-axis maximum values
+    // Get Y-axis maximum values for this specific data point
     const costMaxValue = scales.costScale.domain?.[1] || 1000
     const metricMaxValue = scales.metricScale.domain?.[1] || 100
     
-    // Calculate distance from maximum as a ratio
-    // Smaller ratio = closer to top, larger ratio = farther from top
-    const costDistanceRatio = (costMaxValue - costValue) / costMaxValue
-    const metricDistanceRatio = (metricMaxValue - metricValue) / metricMaxValue
+    // Calculate position ratio relative to axis maximum for THIS data point only
+    const costRatio = costValue / costMaxValue
+    const metricRatio = metricValue / metricMaxValue
     
-    // Distance ratio closer to 0 = closer to Y-axis top = label above
-    // Distance ratio closer to 1 = farther from Y-axis top = label below
-    costShouldBeAbove = costDistanceRatio > metricDistanceRatio
+    // For THIS specific point: if cost ratio is higher, cost label goes above
+    costShouldBeAbove = costRatio > metricRatio
+    
+    // Calculation complete
   }
   
   const labelY = costShouldBeAbove ? y - height - 8 : y + 8
@@ -606,7 +618,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={(props) => <RelativeCostLabel {...props} metricConfig={metricConfig} scales={{metricScale, costScale}} />} position="top" />
+                <LabelList content={(props) => <RelativeCostLabel {...props} metricConfig={metricConfig} scales={{metricScale, costScale}} data={chartData} />} position="top" />
               </Line>
               
               <Line
@@ -618,7 +630,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
                 connectNulls={false}
                 legendType="none"
               >
-                <LabelList content={(props) => <RelativeMetricLabel {...props} config={metricConfig} scales={{metricScale, costScale}} />} position="top" />
+                <LabelList content={(props) => <RelativeMetricLabel {...props} config={metricConfig} scales={{metricScale, costScale}} data={chartData} />} position="top" />
               </Line>
             </LineChart>
           </ResponsiveContainer>
