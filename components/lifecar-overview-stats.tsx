@@ -368,13 +368,13 @@ export function LifeCarOverviewStats({ data, allTimeData }: LifeCarOverviewStats
                   {/* 详细信息 */}
                   <div className="text-xs text-gray-600">
                     {stat.title === 'Views' ? (
-                      <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgClicks?.toFixed(0)} clicks</>
+                      <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgClicks?.toFixed(0)} views</>
                     ) : stat.title === 'Likes' ? (
-                      <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgLikes?.toFixed(0)} likes</>
+                      <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgLikes?.toFixed(0)} likes</>
                     ) : stat.title === 'New Followers' ? (
-                      <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgFollowers?.toFixed(0)} followers</>
+                      <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgFollowers?.toFixed(0)} followers</>
                     ) : stat.title === 'Cost' ? (
-                      <>{stat.currentPeriodDays}-day avg: ${stat.allTimePeriodAvgSpend?.toFixed(2)}</>
+                      <>{stat.currentPeriodDays}-day Avg: ${stat.allTimePeriodAvgSpend?.toFixed(2)}</>
                     ) : null}
                   </div>
                 </div>
@@ -442,19 +442,19 @@ export function LifeCarOverviewStats({ data, allTimeData }: LifeCarOverviewStats
                 {/* 详细信息 */}
                 <div className="text-xs text-gray-600">
                   {stat.title === 'Views' ? (
-                    <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgClicks?.toFixed(0)} clicks</>
+                    <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgClicks?.toFixed(0)} views</>
                   ) : stat.title === 'Likes' ? (
-                    <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgLikes?.toFixed(0)} likes</>
+                    <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgLikes?.toFixed(0)} likes</>
                   ) : stat.title === 'New Followers' ? (
-                    <>{stat.currentPeriodLength}-day avg: {stat.allTimePeriodAvgFollowers?.toFixed(0)} followers</>
+                    <>{stat.currentPeriodLength}-day Avg: {stat.allTimePeriodAvgFollowers?.toFixed(0)} followers</>
                   ) : stat.title === 'Cost' ? (
-                    <>{stat.currentPeriodDays}-day avg: ${stat.allTimePeriodAvgSpend?.toFixed(2)}</>
+                    <>{stat.currentPeriodDays}-day Avg: ${stat.allTimePeriodAvgSpend?.toFixed(2)}</>
                   ) : stat.title === 'Cost per View' ? (
-                    <>{stat.currentPeriodDays}-day avg: ${stat.allTimePeriodAvgCPC?.toFixed(2)}</>
+                    <>{stat.currentPeriodDays}-day Avg: ${stat.allTimePeriodAvgCPC?.toFixed(2)}</>
                   ) : stat.title === 'Cost per Like' ? (
-                    <>{stat.currentPeriodDays}-day avg: ${stat.allTimePeriodAvgCPL?.toFixed(2)}</>
+                    <>{stat.currentPeriodDays}-day Avg: ${stat.allTimePeriodAvgCPL?.toFixed(2)}</>
                   ) : stat.title === 'Cost per Follower' ? (
-                    <>{stat.currentPeriodDays}-day avg: ${stat.allTimePeriodAvgCPF?.toFixed(2)}</>
+                    <>{stat.currentPeriodDays}-day Avg: ${stat.allTimePeriodAvgCPF?.toFixed(2)}</>
                   ) : null}
                 </div>
               </div>
