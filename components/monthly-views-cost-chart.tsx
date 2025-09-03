@@ -304,7 +304,7 @@ export function MonthlyViewsCostChart({ data, title = "Monthly Metrics & Cost An
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-')
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    return `${monthNames[parseInt(month) - 1]} ${year.slice(2)}`
+    return `${monthNames[parseInt(month) - 1]} ${year}`
   }
 
   // Custom tooltip

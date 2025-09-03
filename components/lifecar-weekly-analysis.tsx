@@ -34,14 +34,22 @@ export function LifeCarWeeklyAnalysis({ data, title = "Weekly Performance Detail
     const weekMap = new Map<string, LifeCarDailyData[]>()
     
     data.forEach(item => {
-      const date = new Date(item.date)
+      // Parse date in local timezone to avoid timezone offset issues
+      const [year, month, day] = item.date.split('-').map(Number)
+      const date = new Date(year, month - 1, day, 12, 0, 0, 0) // Set to noon
       const weekStart = new Date(date)
-      const day = weekStart.getDay()
-      const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1)
-      weekStart.setDate(diff)
+      const dayOfWeek = weekStart.getDay()
+      // For Monday-Sunday weeks where Sunday is the LAST day of the week:
+      // Sunday (0) should be grouped with the Monday 6 days BEFORE it
+      // Monday (1) stays at Monday  
+      // Tuesday (2) goes back 1 day to Monday
+      // etc.
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1  // Sunday goes back 6 days to find its Monday
+      weekStart.setDate(weekStart.getDate() - daysFromMonday)
       weekStart.setHours(0, 0, 0, 0)
       
-      const weekKey = weekStart.toISOString().split('T')[0]
+      // Format date in local timezone
+      const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
       
       if (!weekMap.has(weekKey)) {
         weekMap.set(weekKey, [])

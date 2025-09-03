@@ -179,7 +179,7 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-')
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    return `${monthNames[parseInt(month) - 1]} ${year.slice(2)}`
+    return `${monthNames[parseInt(month) - 1]} ${year}`
   }
 
   // Custom tooltip
@@ -290,6 +290,8 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
                 angle={-45}
                 textAnchor="end"
                 height={80}
+                scale="point"
+                padding={{ left: 30, right: 30 }}
               />
               
               {/* Left Y-axis - Selected Metric */}

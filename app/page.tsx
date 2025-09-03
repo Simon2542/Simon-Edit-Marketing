@@ -253,13 +253,33 @@ export default function Home() {
 
   const handleLastWeek = () => {
     const today = new Date();
-    const lastWeekEnd = new Date(today);
-    lastWeekEnd.setDate(today.getDate() - (today.getDay() || 7)); // 上周日
-    const lastWeekStart = new Date(lastWeekEnd);
-    lastWeekStart.setDate(lastWeekEnd.getDate() - 6); // 上周一
+    today.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+    const dayOfWeek = today.getDay();
     
-    setStartDate(lastWeekStart.toISOString().split('T')[0]);
-    setEndDate(lastWeekEnd.toISOString().split('T')[0]);
+    // Calculate how many days to go back to get to last Monday
+    // getDay() returns: 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
+    // If today is Sunday (0), we need to go back 6 days to get to Monday of this week
+    // If today is Monday (1), we need to go back 0 days to get to Monday of this week
+    // Then subtract 7 more days to get to last Monday
+    const daysToThisMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const daysToLastMonday = daysToThisMonday + 7;
+    
+    const lastWeekStart = new Date(today);
+    lastWeekStart.setDate(today.getDate() - daysToLastMonday); // Last Monday
+    
+    const lastWeekEnd = new Date(lastWeekStart);
+    lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // Last Sunday (Monday + 6 days)
+    
+    // Format dates in local timezone
+    const formatLocalDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    setStartDate(formatLocalDate(lastWeekStart));
+    setEndDate(formatLocalDate(lastWeekEnd));
     setError('');
   };
 
@@ -268,13 +288,29 @@ export default function Home() {
     if (!startDate || !endDate) return false;
     
     const today = new Date();
-    const lastWeekEnd = new Date(today);
-    lastWeekEnd.setDate(today.getDate() - (today.getDay() || 7)); // 上周日
-    const lastWeekStart = new Date(lastWeekEnd);
-    lastWeekStart.setDate(lastWeekEnd.getDate() - 6); // 上周一
+    today.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+    const dayOfWeek = today.getDay();
     
-    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0];
-    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0];
+    // Same logic as handleLastWeek
+    const daysToThisMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const daysToLastMonday = daysToThisMonday + 7;
+    
+    const lastWeekStart = new Date(today);
+    lastWeekStart.setDate(today.getDate() - daysToLastMonday); // Last Monday
+    
+    const lastWeekEnd = new Date(lastWeekStart);
+    lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // Last Sunday
+    
+    // Format dates in local timezone
+    const formatLocalDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const lastWeekStartStr = formatLocalDate(lastWeekStart);
+    const lastWeekEndStr = formatLocalDate(lastWeekEnd);
     
     return startDate === lastWeekStartStr && endDate === lastWeekEndStr;
   };
