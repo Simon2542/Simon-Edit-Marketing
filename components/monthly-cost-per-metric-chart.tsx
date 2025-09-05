@@ -9,6 +9,8 @@ import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
 interface MonthlyCostPerMetricChartProps {
   data: LifeCarDailyData[]
   title?: string
+  selectedMetric?: 'views' | 'likes' | 'followers'
+  onMetricChange?: (metric: 'views' | 'likes' | 'followers') => void
 }
 
 interface MonthlyData {
@@ -140,8 +142,35 @@ const CostMetricLabel = (props: any) => {
   )
 }
 
-export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis" }: MonthlyCostPerMetricChartProps) {
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('costPerFollower')
+export function MonthlyCostPerMetricChart({ 
+  data, 
+  title = "Monthly Cost Analysis",
+  selectedMetric: propSelectedMetric,
+  onMetricChange
+}: MonthlyCostPerMetricChartProps) {
+  // Map shared metric from MonthlyViewsCostChart to local metric type
+  const selectedMetric = useMemo(() => {
+    if (propSelectedMetric) {
+      switch (propSelectedMetric) {
+        case 'views': return 'costPerClick' as MetricType
+        case 'likes': return 'costPerLike' as MetricType
+        case 'followers': return 'costPerFollower' as MetricType
+        default: return 'costPerFollower'
+      }
+    }
+    return 'costPerFollower'
+  }, [propSelectedMetric])
+  
+  // Handle metric selection - map back to shared state format
+  const handleMetricSelect = (metric: MetricType) => {
+    if (onMetricChange) {
+      switch (metric) {
+        case 'costPerClick': onMetricChange('views'); break
+        case 'costPerLike': onMetricChange('likes'); break
+        case 'costPerFollower': onMetricChange('followers'); break
+      }
+    }
+  }
   
   // Get metric display info
   const getMetricInfo = (metric: MetricType) => {
@@ -156,6 +185,7 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
   }
   
   const currentMetricInfo = getMetricInfo(selectedMetric)
+
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return []
@@ -243,7 +273,7 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
             <Button
               variant={selectedMetric === 'costPerClick' ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedMetric('costPerClick')}
+              onClick={() => handleMetricSelect('costPerClick')}
               className={selectedMetric === 'costPerClick' 
                 ? 'bg-[#3CBDE5] hover:bg-[#2563EB] text-white border-0' 
                 : 'border-[#3CBDE5] text-[#3CBDE5] hover:bg-[#3CBDE5] hover:text-white'
@@ -254,7 +284,7 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
             <Button
               variant={selectedMetric === 'costPerLike' ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedMetric('costPerLike')}
+              onClick={() => handleMetricSelect('costPerLike')}
               className={selectedMetric === 'costPerLike' 
                 ? 'bg-[#EF3C99] hover:bg-[#E91E63] text-white border-0' 
                 : 'border-[#EF3C99] text-[#EF3C99] hover:bg-[#EF3C99] hover:text-white'
@@ -265,7 +295,7 @@ export function MonthlyCostPerMetricChart({ data, title = "Monthly Cost Analysis
             <Button
               variant={selectedMetric === 'costPerFollower' ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedMetric('costPerFollower')}
+              onClick={() => handleMetricSelect('costPerFollower')}
               className={selectedMetric === 'costPerFollower' 
                 ? 'bg-[#10B981] hover:bg-[#059669] text-white border-0' 
                 : 'border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-white'

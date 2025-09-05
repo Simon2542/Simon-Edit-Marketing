@@ -61,7 +61,6 @@ export function MonthlyPatternChart({ data, title = "Monthly Leads Pattern Analy
               bottom: 5,
             }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="month" 
               stroke="#666"

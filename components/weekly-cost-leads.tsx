@@ -159,7 +159,6 @@ export function WeeklyCostLeads({ data, title = "Weekly Cost & Leads", startDate
               bottom: 160,
             }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="week" 
               angle={-45}

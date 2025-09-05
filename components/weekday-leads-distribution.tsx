@@ -188,7 +188,6 @@ export function WeekdayLeadsDistribution({
               bottom: 5,
             }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="weekday" 
               stroke="#666"

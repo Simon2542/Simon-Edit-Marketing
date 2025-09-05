@@ -9,6 +9,8 @@ import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
 interface MonthlyViewsCostChartProps {
   data: LifeCarDailyData[]
   title?: string
+  selectedMetric?: 'views' | 'likes' | 'followers'
+  onMetricChange?: (metric: 'views' | 'likes' | 'followers') => void
 }
 
 interface MonthlyData {
@@ -230,8 +232,15 @@ const RelativeCostLabel = (props: any) => {
   )
 }
 
-export function MonthlyViewsCostChart({ data, title = "Monthly Metrics & Cost Analysis" }: MonthlyViewsCostChartProps) {
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('views')
+export function MonthlyViewsCostChart({ 
+  data, 
+  title = "Monthly Metrics & Cost Analysis",
+  selectedMetric: propSelectedMetric,
+  onMetricChange
+}: MonthlyViewsCostChartProps) {
+  // Use shared state from props, fallback to default values
+  const selectedMetric = propSelectedMetric ?? 'views'
+  const setSelectedMetric = onMetricChange ?? (() => {})
   
   // Get current metric config
   const metricConfig = useMemo(() => {

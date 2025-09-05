@@ -239,9 +239,42 @@ export default function Home() {
   const [endDate, setEndDate] = useState('');
   const [error, setError] = useState('');
 
+  // LifeCar图表同步状态 - Day of Week Analysis的两个图表按钮同步
+  const [lifecarChartMetric, setLifecarChartMetric] = useState<'views' | 'likes' | 'followers'>('views');
+  const [lifecarChartFiltered, setLifecarChartFiltered] = useState(true);
+
+  // LifeCar Monthly Analysis图表同步状态
+  const [monthlyChartMetric, setMonthlyChartMetric] = useState<'views' | 'likes' | 'followers'>('views');
+
+
   // 账号切换处理函数
   const handleAccountChange = (account: string) => {
     setSelectedAccount(account);
+    
+    // 当切换到LifeCar账号时，重置Day of Week Analysis的按钮状态为默认值
+    if (account === 'lifecar') {
+      setLifecarChartMetric('views');
+      setLifecarChartFiltered(true);
+      setMonthlyChartMetric('views');
+    }
+  };
+
+  // 模块切换处理函数
+  const handleModuleChange = (moduleId: string) => {
+    setActiveModule(moduleId);
+    
+    // 当在LifeCar账号中切换页面时，重置相应的按钮状态
+    if (selectedAccount === 'lifecar') {
+      // 切换到Day of Week Analysis时，重置按钮状态为View
+      if (moduleId === 'cost-interaction') {
+        setLifecarChartMetric('views');
+        setLifecarChartFiltered(true);
+      }
+      // 切换到Monthly Analysis时，重置按钮状态为View
+      else if (moduleId === 'activity-heatmap') {
+        setMonthlyChartMetric('views');
+      }
+    }
   };
 
   // 时间筛选器处理函数
@@ -271,7 +304,7 @@ export default function Home() {
     lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // Last Sunday (Monday + 6 days)
     
     // Format dates in local timezone
-    const formatLocalDate = (date) => {
+    const formatLocalDate = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -302,7 +335,7 @@ export default function Home() {
     lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // Last Sunday
     
     // Format dates in local timezone
-    const formatLocalDate = (date) => {
+    const formatLocalDate = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -991,7 +1024,7 @@ export default function Home() {
                         isHidden ? 'opacity-50' : ''
                       }`}>
                         <button
-                          onClick={() => !isHidden && setActiveModule(module.id)}
+                          onClick={() => !isHidden && handleModuleChange(module.id)}
                           disabled={isHidden}
                           className={`w-full px-4 py-3 text-sm font-medium transition-all duration-200 ${
                             isActive && !isHidden
@@ -1068,6 +1101,10 @@ export default function Home() {
                         startDate={startDate}
                         endDate={endDate}
                         allData={lifeCarData}
+                        selectedMetric={lifecarChartMetric}
+                        onMetricChange={setLifecarChartMetric}
+                        isFiltered={lifecarChartFiltered}
+                        onFilterChange={setLifecarChartFiltered}
                       />
                     )}
                     
@@ -1079,6 +1116,10 @@ export default function Home() {
                         startDate={startDate}
                         endDate={endDate}
                         allData={lifeCarData}
+                        selectedMetric={lifecarChartMetric}
+                        onMetricChange={setLifecarChartMetric}
+                        isFiltered={lifecarChartFiltered}
+                        onFilterChange={setLifecarChartFiltered}
                       />
                     )}
                     
@@ -1097,6 +1138,8 @@ export default function Home() {
                       <MonthlyViewsCostChart 
                         data={lifeCarData} 
                         title="Monthly Metrics & Cost Analysis"
+                        selectedMetric={monthlyChartMetric}
+                        onMetricChange={setMonthlyChartMetric}
                       />
                     )}
                     
@@ -1105,6 +1148,8 @@ export default function Home() {
                       <MonthlyCostPerMetricChart 
                         data={lifeCarData} 
                         title="Monthly Cost Analysis"
+                        selectedMetric={monthlyChartMetric}
+                        onMetricChange={setMonthlyChartMetric}
                       />
                     )}
                     

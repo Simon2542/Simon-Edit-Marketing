@@ -352,25 +352,20 @@ export function WeeklyOverallAverage({ startDate, endDate, weeklyData = [], brok
       totalCosts: acc.totalCosts + week.totalCost,
     }), { totalLeads: 0, totalCosts: 0 });
 
-    // 计算有营销成本周的leads总数（用于per lead cost计算）
-    const leadsWithCosts = processedWeeklyData
-      .filter(week => week.totalCost > 0)
-      .reduce((sum, week) => sum + week.leadsTotal, 0);
-
     const weekCount = processedWeeklyData.length;
     
-    // 正确的Average Leads计算：Clients_info总数 ÷ weekly_data工作表实际周数
-    const totalClientsFromClientsInfo = brokerData.length; // Total clients
+    // 使用客户信息表的总客户数量（与KPI卡保持一致）
+    const totalClientsFromClientsInfo = new Set(brokerData.map((client: any) => client.no).filter(no => no !== null && no !== undefined)).size;
     const actualWeeklyDataSheetWeeks = processedWeeklyData.length; // 动态计算实际周数
     
     return {
       avgLeads: totalClientsFromClientsInfo / actualWeeklyDataSheetWeeks, // 动态计算周平均
       avgDailyLeads: (totalClientsFromClientsInfo / actualWeeklyDataSheetWeeks) / 7,
       avgLeadsCosts: totals.totalCosts / actualWeeklyDataSheetWeeks, // 总成本 ÷ 实际周数
-      avgPerLeadsCosts: leadsWithCosts > 0 ? totals.totalCosts / leadsWithCosts : 0, // 总成本 ÷ 有营销成本的leads
+      avgPerLeadsCosts: totalClientsFromClientsInfo > 0 ? totals.totalCosts / totalClientsFromClientsInfo : 0, // 总成本 ÷ 总客户数量（与KPI卡一致）
       totalWeeks: weekCount,
     };
-  }, [processedWeeklyData]);
+  }, [processedWeeklyData, brokerData]);
 
   return (
     <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6">

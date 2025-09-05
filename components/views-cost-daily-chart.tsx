@@ -12,6 +12,10 @@ interface ViewsCostDailyChartProps {
   startDate?: string
   endDate?: string
   allData?: LifeCarDailyData[] // All unfiltered data for toggle functionality
+  selectedMetric?: MetricType // Shared metric state
+  onMetricChange?: (metric: MetricType) => void // Shared metric change handler
+  isFiltered?: boolean // Shared filter state
+  onFilterChange?: (filtered: boolean) => void // Shared filter change handler
 }
 
 interface DailyData {
@@ -325,10 +329,33 @@ const RelativeCostLabel = (props: any) => {
   )
 }
 
-export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analysis", startDate, endDate, allData }: ViewsCostDailyChartProps) {
-  // State for filter toggle and metric selection
-  const [isFiltered, setIsFiltered] = useState(true)
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('views')
+export function ViewsCostDailyChart({ 
+  data, 
+  title = "Daily Metrics & Cost Analysis", 
+  startDate, 
+  endDate, 
+  allData,
+  selectedMetric: propSelectedMetric,
+  onMetricChange,
+  isFiltered: propIsFiltered,
+  onFilterChange
+}: ViewsCostDailyChartProps) {
+  // Use shared state from props, fallback to default values
+  const isFiltered = propIsFiltered ?? true
+  const selectedMetric = propSelectedMetric ?? 'views'
+  const setIsFiltered = onFilterChange ?? (() => {})
+  const setSelectedMetric = onMetricChange ?? (() => {})
+
+  // Handle metric selection - simple synchronization
+  const handleMetricSelect = (metric: MetricType) => {
+    setSelectedMetric(metric)
+  }
+
+  // Handle filter toggle - simple synchronization
+  const handleFilterToggle = () => {
+    const newFilterState = !isFiltered
+    setIsFiltered(newFilterState)
+  }
   
   // Get current metric config
   const metricConfig = useMemo(() => {
@@ -515,7 +542,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
               <Button
                 variant={selectedMetric === 'views' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('views')}
+                onClick={() => handleMetricSelect('views')}
                 className={selectedMetric === 'views' 
                   ? 'bg-[#3CBDE5] hover:bg-[#2563EB] text-white border-0' 
                   : 'border-[#3CBDE5] text-[#3CBDE5] hover:bg-[#3CBDE5] hover:text-white'
@@ -526,7 +553,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
               <Button
                 variant={selectedMetric === 'likes' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('likes')}
+                onClick={() => handleMetricSelect('likes')}
                 className={selectedMetric === 'likes' 
                   ? 'bg-[#EF3C99] hover:bg-[#E91E63] text-white border-0' 
                   : 'border-[#EF3C99] text-[#EF3C99] hover:bg-[#EF3C99] hover:text-white'
@@ -537,7 +564,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
               <Button
                 variant={selectedMetric === 'followers' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('followers')}
+                onClick={() => handleMetricSelect('followers')}
                 className={selectedMetric === 'followers' 
                   ? 'bg-[#10B981] hover:bg-[#059669] text-white border-0' 
                   : 'border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-white'
@@ -551,7 +578,7 @@ export function ViewsCostDailyChart({ data, title = "Daily Metrics & Cost Analys
             <Button
               variant={isFiltered ? "default" : "outline"}
               size="sm"
-              onClick={() => setIsFiltered(!isFiltered)}
+              onClick={handleFilterToggle}
               className={isFiltered 
                 ? 'bg-gradient-to-r from-[#751FAE] to-[#8B5CF6] hover:from-[#6B1F9A] hover:to-[#7C3AED] text-white border-0' 
                 : 'border-[#751FAE] text-[#751FAE] hover:bg-[#751FAE] hover:text-white'

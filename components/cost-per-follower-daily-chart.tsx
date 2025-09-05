@@ -12,6 +12,10 @@ interface CostPerFollowerDailyChartProps {
   startDate?: string
   endDate?: string
   allData?: LifeCarDailyData[] // All unfiltered data for toggle functionality
+  selectedMetric?: 'views' | 'likes' | 'followers' // Shared metric state (mapping from ViewsCostDailyChart)
+  onMetricChange?: (metric: 'views' | 'likes' | 'followers') => void // Shared metric change handler
+  isFiltered?: boolean // Shared filter state
+  onFilterChange?: (filtered: boolean) => void // Shared filter change handler
 }
 
 interface DailyData {
@@ -184,10 +188,66 @@ const CostMetricLabel = (props: any) => {
   )
 }
 
-export function CostPerFollowerDailyChart({ data, title = "Daily Cost Analysis", startDate, endDate, allData }: CostPerFollowerDailyChartProps) {
-  // State for filter toggle and metric selection
-  const [isFiltered, setIsFiltered] = useState(true)
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('costPerFollower')
+export function CostPerFollowerDailyChart({ 
+  data, 
+  title = "Daily Cost Analysis", 
+  startDate, 
+  endDate, 
+  allData,
+  selectedMetric: propSelectedMetric,
+  onMetricChange,
+  isFiltered: propIsFiltered,
+  onFilterChange
+}: CostPerFollowerDailyChartProps) {
+  // Use shared state from props, fallback to default values
+  const isFiltered = propIsFiltered ?? true
+  const setIsFiltered = onFilterChange ?? (() => {})
+  
+  // Map shared metric from ViewsCostDailyChart to local metric type
+  const selectedMetric = useMemo(() => {
+    if (propSelectedMetric) {
+      switch (propSelectedMetric) {
+        case 'views': return 'costPerClick' as MetricType
+        case 'likes': return 'costPerLike' as MetricType
+        case 'followers': return 'costPerFollower' as MetricType
+        default: return 'costPerFollower'
+      }
+    }
+    return 'costPerFollower'
+  }, [propSelectedMetric])
+  
+  // Update shared state when local metric changes
+  const setSelectedMetric = (metric: MetricType) => {
+    if (onMetricChange) {
+      switch (metric) {
+        case 'costPerClick': onMetricChange('views'); break
+        case 'costPerLike': onMetricChange('likes'); break
+        case 'costPerFollower': onMetricChange('followers'); break
+      }
+    } else {
+      setLocalMetric(metric)
+    }
+  }
+
+  // Handle metric selection - simple synchronization
+  const handleMetricSelect = (metric: MetricType) => {
+    // Map the clicked metric to shared state format and update
+    if (onMetricChange) {
+      switch (metric) {
+        case 'costPerClick': onMetricChange('views'); break
+        case 'costPerLike': onMetricChange('likes'); break
+        case 'costPerFollower': onMetricChange('followers'); break
+      }
+    }
+  }
+
+  // Handle filter toggle - simple synchronization
+  const handleFilterToggle = () => {
+    const newFilterState = !isFiltered
+    if (onFilterChange) {
+      onFilterChange(newFilterState)
+    }
+  }
 
   // Check if the date range is exactly 7 days
   const isSevenDayRange = useMemo(() => {
@@ -333,7 +393,7 @@ export function CostPerFollowerDailyChart({ data, title = "Daily Cost Analysis",
               <Button
                 variant={selectedMetric === 'costPerClick' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('costPerClick')}
+                onClick={() => handleMetricSelect('costPerClick')}
                 className={selectedMetric === 'costPerClick' 
                   ? 'bg-[#3CBDE5] hover:bg-[#2563EB] text-white border-0' 
                   : 'border-[#3CBDE5] text-[#3CBDE5] hover:bg-[#3CBDE5] hover:text-white'
@@ -344,7 +404,7 @@ export function CostPerFollowerDailyChart({ data, title = "Daily Cost Analysis",
               <Button
                 variant={selectedMetric === 'costPerLike' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('costPerLike')}
+                onClick={() => handleMetricSelect('costPerLike')}
                 className={selectedMetric === 'costPerLike' 
                   ? 'bg-[#EF3C99] hover:bg-[#E91E63] text-white border-0' 
                   : 'border-[#EF3C99] text-[#EF3C99] hover:bg-[#EF3C99] hover:text-white'
@@ -355,7 +415,7 @@ export function CostPerFollowerDailyChart({ data, title = "Daily Cost Analysis",
               <Button
                 variant={selectedMetric === 'costPerFollower' ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedMetric('costPerFollower')}
+                onClick={() => handleMetricSelect('costPerFollower')}
                 className={selectedMetric === 'costPerFollower' 
                   ? 'bg-[#10B981] hover:bg-[#059669] text-white border-0' 
                   : 'border-[#10B981] text-[#10B981] hover:bg-[#10B981] hover:text-white'
@@ -369,7 +429,7 @@ export function CostPerFollowerDailyChart({ data, title = "Daily Cost Analysis",
             <Button
               variant={isFiltered ? "default" : "outline"}
               size="sm"
-              onClick={() => setIsFiltered(!isFiltered)}
+              onClick={handleFilterToggle}
               className={isFiltered 
                 ? 'bg-gradient-to-r from-[#751FAE] to-[#8B5CF6] hover:from-[#6B1F9A] hover:to-[#7C3AED] text-white border-0' 
                 : 'border-[#751FAE] text-[#751FAE] hover:bg-[#751FAE] hover:text-white'

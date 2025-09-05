@@ -152,7 +152,6 @@ export function MonthlyPerLeadsCost({ data, title = "Monthly Cost per Lead", sta
               bottom: 100 
             }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis 
               dataKey="month" 
               angle={-45}
