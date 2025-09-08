@@ -16,12 +16,14 @@ interface WeeklyMetrics {
   totalCost: number
   totalImpressions: number
   totalClicks: number
-  totalInteraction: number
+  totalLikes: number
+  totalNewFollowers: number
   totalPrivateMessages: number
   costChange?: number
   impressionsChange?: number
   clicksChange?: number
-  interactionChange?: number
+  likesChange?: number
+  newFollowersChange?: number
   privateMessagesChange?: number
 }
 
@@ -72,7 +74,8 @@ export function LifeCarWeeklyAnalysis({ data, title = "Weekly Performance Detail
         totalCost: weekData.reduce((sum, d) => sum + (d.spend || 0), 0),
         totalImpressions: weekData.reduce((sum, d) => sum + (d.impressions || 0), 0),
         totalClicks: weekData.reduce((sum, d) => sum + (d.clicks || 0), 0),
-        totalInteraction: weekData.reduce((sum, d) => sum + (d.interactions || 0), 0),
+        totalLikes: weekData.reduce((sum, d) => sum + (d.likes || 0), 0),
+        totalNewFollowers: weekData.reduce((sum, d) => sum + (d.followers || 0), 0),
         totalPrivateMessages: weekData.reduce((sum, d) => sum + ((d.multiConversion1 || 0) + (d.multiConversion2 || 0)), 0)
 
       }
@@ -101,8 +104,11 @@ export function LifeCarWeeklyAnalysis({ data, title = "Weekly Performance Detail
       if (previous.totalClicks > 0) {
         current.clicksChange = ((current.totalClicks - previous.totalClicks) / previous.totalClicks) * 100
       }
-      if (previous.totalInteraction > 0) {
-        current.interactionChange = ((current.totalInteraction - previous.totalInteraction) / previous.totalInteraction) * 100
+      if (previous.totalLikes > 0) {
+        current.likesChange = ((current.totalLikes - previous.totalLikes) / previous.totalLikes) * 100
+      }
+      if (previous.totalNewFollowers > 0) {
+        current.newFollowersChange = ((current.totalNewFollowers - previous.totalNewFollowers) / previous.totalNewFollowers) * 100
       }
       if (previous.totalPrivateMessages > 0) {
         current.privateMessagesChange = ((current.totalPrivateMessages - previous.totalPrivateMessages) / previous.totalPrivateMessages) * 100
@@ -220,15 +226,27 @@ export function LifeCarWeeklyAnalysis({ data, title = "Weekly Performance Detail
                 </div>
               </div>
 
-              {/* Interaction */}
+              {/* Likes */}
               <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
                 <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
-                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Interaction</div>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Likes</div>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalInteraction)}</div>
-                  {renderChangePercent(weekData.interactionChange, 'positive')}
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLikes)}</div>
+                  {renderChangePercent(weekData.likesChange, 'positive')}
+                </div>
+              </div>
+
+              {/* New Followers */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">New Followers</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalNewFollowers)}</div>
+                  {renderChangePercent(weekData.newFollowersChange, 'positive')}
                 </div>
               </div>
 
