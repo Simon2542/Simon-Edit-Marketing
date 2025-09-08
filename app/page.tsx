@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
@@ -850,7 +851,7 @@ export default function Home() {
               </div>
             </div>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <h1 className="text-4xl font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">Marketing Dashboard</h1>
+              <h1 className="text-4xl font-black bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">Marketing Dashboard</h1>
               <p className="text-base text-purple-600 mt-1 font-montserrat font-light">Real-time analytics & insights</p>
             </div>
             <div className="ml-auto flex items-center space-x-3 z-50 relative">

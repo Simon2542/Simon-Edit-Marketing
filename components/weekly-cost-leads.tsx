@@ -31,13 +31,44 @@ export function WeeklyCostLeads({ data, title = "Weekly Cost & Leads", startDate
     }
   }, []);
   
-  // 时间筛选逻辑
+  // 时间筛选逻辑和未完成周过滤
   const filteredData = React.useMemo(() => {
-    if (!startDate || !endDate) {
-      return data;
+    const now = new Date();
+    
+    let filteredByDate = data;
+    
+    // 如果有日期筛选，先应用日期筛选
+    if (startDate && endDate) {
+      filteredByDate = data.filter(item => {
+        // 解析周次格式 (e.g., "2024/wk44")
+        const weekMatch = item.week.match(/(\d{4})\/wk(\d+)/);
+        if (!weekMatch) return true;
+        
+        const year = parseInt(weekMatch[1]);
+        const weekNum = parseInt(weekMatch[2]);
+        
+        // 计算该周的开始和结束日期
+        const firstDay = new Date(year, 0, 1);
+        const dayOfWeek = firstDay.getDay();
+        const firstMonday = new Date(firstDay);
+        firstMonday.setDate(firstDay.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+        
+        const weekStart = new Date(firstMonday);
+        weekStart.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        // 检查是否在筛选范围内
+        const filterStart = new Date(startDate);
+        const filterEnd = new Date(endDate);
+        
+        return !(weekEnd < filterStart || weekStart > filterEnd);
+      });
     }
-
-    return data.filter(item => {
+    
+    // 过滤掉未完成的周（当前时间还没有超过该周的结束日期）
+    return filteredByDate.filter(item => {
       // 解析周次格式 (e.g., "2024/wk44")
       const weekMatch = item.week.match(/(\d{4})\/wk(\d+)/);
       if (!weekMatch) return true;
@@ -57,11 +88,11 @@ export function WeeklyCostLeads({ data, title = "Weekly Cost & Leads", startDate
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       
-      // 检查是否在筛选范围内
-      const filterStart = new Date(startDate);
-      const filterEnd = new Date(endDate);
+      // 设置到当天结束时间（23:59:59）进行比较
+      weekEnd.setHours(23, 59, 59, 999);
       
-      return !(weekEnd < filterStart || weekStart > filterEnd);
+      // 只显示已经完成的周（当前时间已经超过该周的结束时间）
+      return now > weekEnd;
     });
   }, [data, startDate, endDate]);
   // 自定义标签组件 - 成本数据 (左Y轴, 紫色线)
