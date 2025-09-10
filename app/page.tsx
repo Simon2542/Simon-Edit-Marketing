@@ -247,6 +247,9 @@ export default function Home() {
   // LifeCar Monthly Analysis图表同步状态
   const [monthlyChartMetric, setMonthlyChartMetric] = useState<'views' | 'likes' | 'followers'>('views');
 
+  // 年度统计表格视图切换状态
+  const [annualTableView, setAnnualTableView] = useState<'cost' | 'leads'>('cost');
+
 
   // 账号切换处理函数
   const handleAccountChange = (account: string) => {
@@ -317,6 +320,19 @@ export default function Home() {
     setError('');
   };
 
+  const handleThisYear = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    
+    // Format dates for this year (January 1 to December 31)
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    
+    setStartDate(yearStart);
+    setEndDate(yearEnd);
+    setError('');
+  };
+
   // 检查当前日期范围是否是上周
   const isLastWeekSelected = () => {
     if (!startDate || !endDate) return false;
@@ -347,6 +363,18 @@ export default function Home() {
     const lastWeekEndStr = formatLocalDate(lastWeekEnd);
     
     return startDate === lastWeekStartStr && endDate === lastWeekEndStr;
+  };
+
+  // 检查当前日期范围是否是今年
+  const isThisYearSelected = () => {
+    if (!startDate || !endDate) return false;
+    
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    
+    return startDate === yearStart && endDate === yearEnd;
   };
 
   // 导航到前一个时间段
@@ -883,11 +911,25 @@ export default function Home() {
             <div className="max-w-7xl mx-auto mb-6">
               <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
                 {/* 主体标签 */}
-                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
-                  <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-                    <CalendarIcon className="h-5 w-5 text-purple-600" />
+                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+                      <CalendarIcon className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
+                  <Button 
+                    onClick={handleThisYear} 
+                    variant="secondary"
+                    size="sm"
+                    className={`${
+                      isThisYearSelected() 
+                        ? 'bg-purple-400 text-white hover:bg-purple-500' 
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    } transition-all duration-200 font-semibold h-8 px-3 text-sm`}
+                  >
+                    This Year
+                  </Button>
                 </div>
                 
                 {/* 单行布局 */}
@@ -1198,11 +1240,25 @@ export default function Home() {
         <div className="max-w-7xl mx-auto mb-6">
           <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
             {/* 主体标签 */}
-            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
-              <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-                <CalendarIcon className="h-5 w-5 text-purple-600" />
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+                  <CalendarIcon className="h-5 w-5 text-purple-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
+              <Button 
+                onClick={handleThisYear} 
+                variant="secondary"
+                size="sm"
+                className={`${
+                  isThisYearSelected() 
+                    ? 'bg-purple-400 text-white hover:bg-purple-500' 
+                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                } transition-all duration-200 font-semibold h-8 px-3 text-sm`}
+              >
+                This Year
+              </Button>
             </div>
             
             {/* 单行布局 */}
@@ -1499,6 +1555,130 @@ export default function Home() {
             {/* 检查是否有数据 */}
             {brokerDataJson.length > 0 && weeklyDataJson.length > 0 && monthlyDataJson.length > 0 ? (
               <div className="space-y-3">
+                {/* Annual Statistics Table */}
+                <div className="glass-card p-6 rounded-md glass-card-hover">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800">Annual Statistics Summary</h3>
+                      <p className="text-xs text-gray-500 mt-1">Based on actual Excel data only (no estimated data)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAnnualTableView('cost')}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all duration-200 ${
+                          annualTableView === 'cost'
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Cost View
+                      </button>
+                      <button
+                        onClick={() => setAnnualTableView('leads')}
+                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all duration-200 ${
+                          annualTableView === 'leads'
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        Leads View
+                      </button>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-gray-200">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Year</th>
+                          {annualTableView === 'cost' ? (
+                            <>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Cost (AUD)</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Campaign Days</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Daily Average (AUD)</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Monthly Average (AUD)</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Leads</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Daily Average (Leads)</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Monthly Average (Leads)</th>
+                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Average Cost per Lead (AUD)</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // 计算年度统计数据 - 只使用真实Excel数据，不包含估算数据
+                          const yearlyStats = {};
+                          
+                          // 处理周数据来计算年度统计 - 过滤掉估算数据
+                          weeklyDataJson.forEach(item => {
+                            const match = item.week?.match(/(\d{4})\/wk/);
+                            // 只处理真实数据：必须不是估算数据
+                            if (match && !item._isEstimated) {
+                              const year = match[1];
+                              if (!yearlyStats[year]) {
+                                yearlyStats[year] = {
+                                  totalCost: 0,
+                                  totalLeads: 0,
+                                  realWeeks: new Set(), // 只计算真实周数
+                                  days: 0
+                                };
+                              }
+                              yearlyStats[year].totalCost += (item.totalCost || 0);
+                              yearlyStats[year].totalLeads += (item.leadsTotal || 0);
+                              yearlyStats[year].realWeeks.add(item.week);
+                            }
+                          });
+
+                          // 计算每年的投放天数（每周7天）- 只基于真实周数
+                          Object.keys(yearlyStats).forEach(year => {
+                            yearlyStats[year].days = yearlyStats[year].realWeeks.size * 7;
+                          });
+
+                          return Object.entries(yearlyStats)
+                            .sort(([a], [b]) => b.localeCompare(a)) // 按年份降序排列
+                            .map(([year, stats]) => (
+                              <tr key={year} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td className="py-3 px-4 font-medium text-gray-800">{year}</td>
+                                {annualTableView === 'cost' ? (
+                                  <>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      ${stats.totalCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">{stats.days}</td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      ${stats.days > 0 ? (stats.totalCost / stats.days).toFixed(0) : '0'}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      ${stats.days > 0 ? ((stats.totalCost / stats.days) * 30).toFixed(0) : '0'}
+                                    </td>
+                                  </>
+                                ) : (
+                                  <>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      {stats.totalLeads.toLocaleString('en-US')}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      {stats.days > 0 ? (stats.totalLeads / stats.days).toFixed(1) : '0'}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      {stats.days > 0 ? ((stats.totalLeads / stats.days) * 30).toFixed(1) : '0'}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                      ${stats.totalLeads > 0 ? (stats.totalCost / stats.totalLeads).toFixed(0) : '0'}
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                            ));
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 <div className="glass-card p-3 rounded-md glass-card-hover">
                   <MonthlyLeadsCost 
                     data={monthlyData} 

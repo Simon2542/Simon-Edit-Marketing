@@ -115,9 +115,9 @@ export function PieChartWithFilter({ startDate = '', endDate = '', brokerData = 
         <h3 className="text-lg font-semibold text-gray-800 font-montserrat">Weekly Broker Avg Leads (Filtered)</h3>
       </div>
 
-      {/* KPI 卡片 - Total Leads This Week */}
+      {/* KPI 卡片 - Total Leads (Selected Period) */}
       <div className="mb-6 bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-4 text-center hover:shadow-lg transition-all duration-200">
-        <div className="text-sm font-semibold text-[#0ea5e9] mb-2 font-montserrat">Total Leads This Week</div>
+        <div className="text-sm font-semibold text-[#0ea5e9] mb-2 font-montserrat">Total Leads (Selected Period)</div>
         <div className="text-3xl font-semibold text-[#1e293b] font-montserrat">
           {totalClients}
         </div>

@@ -39,7 +39,8 @@ function generateMissingWeeklyData(existingWeeklyData: any[], clientsData: any[]
         week: weekStr,
         totalCost: estimatedCost,
         leadsTotal: leadsCount,
-        leadsPrice: leadsCount > 0 ? estimatedCost / leadsCount : 0
+        leadsPrice: leadsCount > 0 ? estimatedCost / leadsCount : 0,
+        _isEstimated: true // 标记为估算数据
       });
     }
   });
