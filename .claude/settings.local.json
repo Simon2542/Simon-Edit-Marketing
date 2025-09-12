@@ -55,7 +55,9 @@
       "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
       "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
       "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
-      "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)"
+      "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
+      "Bash(git checkout:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": []
   }

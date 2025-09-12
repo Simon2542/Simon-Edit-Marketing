@@ -8,11 +8,8 @@ import { WeeklyCostLeads } from "@/components/weekly-cost-leads"
 import { MonthlyLeadsCost } from "@/components/monthly-leads-cost"
 import { MonthlyPerLeadsCost } from "@/components/monthly-per-leads-cost"
 import { DailyLeadsChart } from "@/components/daily-leads-chart"
-import { MonthlyCountStackedChart } from "@/components/monthly-count-stacked-chart"
-import { MonthlyPatternChart } from "@/components/monthly-pattern-chart"
 import { PieChartWithFilter } from "@/components/pie-chart-with-filter"
 import { BrokerWeeklyDonutChart } from "@/components/broker-weekly-donut-chart"
-import { WeekdayChartWithFilter } from "@/components/weekday-chart-with-filter"
 import { BrokerActivityHeatmap } from "@/components/broker-activity-heatmap"
 import { AcquisitionTimeAnalysis } from "@/components/acquisition-time-analysis"
 import { WeeklyAnalysis, WeeklyOverallAverage } from "@/components/weekly-analysis"
@@ -20,22 +17,34 @@ import { ExcelUpload } from "@/components/excel-upload"
 import { AccountSwitcher } from "@/components/ui/platform-switcher"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Upload, Maximize, Minimize, Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { LifeCarDailyTrends } from "@/components/lifecar-daily-trends"
 import { LifeCarMonthlySummary } from "@/components/lifecar-monthly-summary"
 import { LifeCarOverviewStats } from "@/components/lifecar-overview-stats"
-import { LifeCarPerformanceHeatmap } from "@/components/lifecar-performance-heatmap"
-import { InteractionDonutChart } from "@/components/engagement-donut-chart"
-import { ClickRateInteractionRateRollingChart } from "@/components/clickrate-engagementrate-rolling-chart"
 import { ViewsCostDailyChart } from "@/components/views-cost-daily-chart"
-import { LikesCostDailyChart } from "@/components/likes-cost-daily-chart"
 import { CostPerFollowerDailyChart } from "@/components/cost-per-follower-daily-chart"
 import { LifeCarWeeklyAnalysis } from "@/components/lifecar-weekly-analysis"
 import { MonthlyViewsCostChart } from "@/components/monthly-views-cost-chart"
 import { MonthlyCostPerMetricChart } from "@/components/monthly-cost-per-metric-chart"
 import { parseLifeCarData, aggregateByMonth, filterByDateRange, type LifeCarDailyData, type LifeCarMonthlyData } from "@/lib/lifecar-data-processor"
+import { LifeCarNotesModal } from "@/components/lifecar-notes-modal"
 // 移除静态导入，改为动态API调用
+
+// 小王测试数据类型定义
+interface XiaowangTestData {
+  adData: any[];
+  brokerData: any[];
+  summary: {
+    totalCost: number;
+    totalImpressions: number;
+    totalClicks: number;
+    totalInteractions: number;
+    totalConversions: number;
+    totalBrokerClients: number;
+    avgClickRate: number;
+    avgConversionCost: number;
+  };
+}
 
 // 处理日期格式 - 将各种日期格式转换为标准格式
 function parseDate(dateInput: string | number): Date | null {
@@ -247,9 +256,6 @@ export default function Home() {
   // LifeCar Monthly Analysis图表同步状态
   const [monthlyChartMetric, setMonthlyChartMetric] = useState<'views' | 'likes' | 'followers'>('views');
 
-  // 年度统计表格视图切换状态
-  const [annualTableView, setAnnualTableView] = useState<'cost' | 'leads'>('cost');
-
 
   // 账号切换处理函数
   const handleAccountChange = (account: string) => {
@@ -260,6 +266,11 @@ export default function Home() {
       setLifecarChartMetric('views');
       setLifecarChartFiltered(true);
       setMonthlyChartMetric('views');
+    }
+    
+    // 当切换到小王测试账号时，自动加载数据
+    if (account === 'xiaowang-test') {
+      loadXiaowangTestData();
     }
   };
 
@@ -320,19 +331,6 @@ export default function Home() {
     setError('');
   };
 
-  const handleThisYear = () => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    
-    // Format dates for this year (January 1 to December 31)
-    const yearStart = `${currentYear}-01-01`;
-    const yearEnd = `${currentYear}-12-31`;
-    
-    setStartDate(yearStart);
-    setEndDate(yearEnd);
-    setError('');
-  };
-
   // 检查当前日期范围是否是上周
   const isLastWeekSelected = () => {
     if (!startDate || !endDate) return false;
@@ -363,18 +361,6 @@ export default function Home() {
     const lastWeekEndStr = formatLocalDate(lastWeekEnd);
     
     return startDate === lastWeekStartStr && endDate === lastWeekEndStr;
-  };
-
-  // 检查当前日期范围是否是今年
-  const isThisYearSelected = () => {
-    if (!startDate || !endDate) return false;
-    
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const yearStart = `${currentYear}-01-01`;
-    const yearEnd = `${currentYear}-12-31`;
-    
-    return startDate === yearStart && endDate === yearEnd;
   };
 
   // 导航到前一个时间段
@@ -424,6 +410,172 @@ export default function Home() {
   const [lifeCarMonthlyData, setLifeCarMonthlyData] = useState<LifeCarMonthlyData[]>([]);
   const [lifeCarLoading, setLifeCarLoading] = useState(false);
   const [lifeCarCsvContent, setLifeCarCsvContent] = useState<string>(''); // Store CSV content for child components
+
+  // 小王测试数据状态
+  const [xiaowangTestData, setXiaowangTestData] = useState<XiaowangTestData | null>(null);
+  const [xiaowangTestLoading, setXiaowangTestLoading] = useState(false);
+
+  // LifeCar 笔记浮窗状态
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [selectedNoteDates, setSelectedNoteDates] = useState<string[]>([]);
+
+  // 检查是否选择了一周时间范围
+  const isOneWeekSelected = useMemo(() => {
+    if (!startDate || !endDate) return false;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays === 6; // 7天范围实际相差6天
+  }, [startDate, endDate]);
+
+  // Notes数据中在当前时间范围内的日期
+  const [notesInDateRange, setNotesInDateRange] = useState<string[]>([]);
+
+  // Notes按星期几的统计
+  const [notesWeekdayCount, setNotesWeekdayCount] = useState<{[key: string]: number}>({});
+
+  // Notes按月份的统计
+  const [notesMonthlyCount, setNotesMonthlyCount] = useState<{[key: string]: number}>({});
+
+  // 获取Notes数据中在时间范围内的日期
+  useEffect(() => {
+    const fetchNotesInRange = async () => {
+      if (!isOneWeekSelected || !startDate || !endDate) {
+        setNotesInDateRange([]);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/lifecar-notes');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const notesData = result.data;
+            const datesInRange = notesData
+              .map((note: any) => note.发布时间?.split(' ')[0]) // Extract date part
+              .filter((date: string) => date && date >= startDate && date <= endDate)
+              .filter((date: string, index: number, array: string[]) => array.indexOf(date) === index); // Remove duplicates
+            
+            setNotesInDateRange(datesInRange);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch notes for date range:', error);
+        setNotesInDateRange([]);
+      }
+    };
+
+    fetchNotesInRange();
+  }, [isOneWeekSelected, startDate, endDate]);
+
+  // 获取Notes数据并计算在投放数据时间范围内的星期几统计
+  useEffect(() => {
+    const fetchNotesWeekdayCount = async () => {
+      if (!lifeCarData.length) {
+        setNotesWeekdayCount({});
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/lifecar-notes');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const notesData = result.data;
+            const weekdayCount: {[key: string]: number} = {
+              'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+            };
+            
+            // 确定时间范围：考虑全局筛选器和图表级别的"All data"状态
+            let minDate: number, maxDate: number;
+            
+            // 如果图表使用"All data"模式，或者没有全局筛选器，则使用完整时间范围
+            if (!lifecarChartFiltered || (!startDate || !endDate)) {
+              // 使用投放数据的完整时间范围
+              const campaignDates = lifeCarData.map(item => item.date);
+              minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
+              maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
+            } else {
+              // 使用筛选器指定的范围
+              minDate = new Date(startDate).getTime();
+              maxDate = new Date(endDate).getTime();
+            }
+            
+            notesData.forEach((note: any) => {
+              const dateStr = note.发布时间?.split(' ')[0];
+              if (dateStr) {
+                const noteTime = new Date(dateStr).getTime();
+                // 只统计在确定时间范围内的Notes
+                if (noteTime >= minDate && noteTime <= maxDate) {
+                  const date = new Date(dateStr);
+                  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+                  if (weekdayCount[weekday] !== undefined) {
+                    weekdayCount[weekday]++;
+                  }
+                }
+              }
+            });
+            
+            setNotesWeekdayCount(weekdayCount);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch notes for weekday count:', error);
+        setNotesWeekdayCount({});
+      }
+    };
+
+    fetchNotesWeekdayCount();
+  }, [isOneWeekSelected, lifeCarData, startDate, endDate, lifecarChartFiltered]);
+
+  // 获取Notes数据并计算在投放数据时间范围内的月份统计
+  useEffect(() => {
+    const fetchNotesMonthlyCount = async () => {
+      if (!lifeCarData.length) {
+        setNotesMonthlyCount({});
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/lifecar-notes');
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            const notesData = result.data;
+            const monthlyCount: {[key: string]: number} = {};
+            
+            // 使用投放数据的完整时间范围 (Monthly Analysis always uses all data)
+            const campaignDates = lifeCarData.map(item => item.date);
+            const minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
+            const maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
+            
+            notesData.forEach((note: any) => {
+              const dateStr = note.发布时间?.split(' ')[0];
+              if (dateStr) {
+                const noteTime = new Date(dateStr).getTime();
+                // 只统计在投放时间范围内的Notes
+                if (noteTime >= minDate && noteTime <= maxDate) {
+                  const month = dateStr.substring(0, 7); // YYYY-MM format
+                  if (!monthlyCount[month]) {
+                    monthlyCount[month] = 0;
+                  }
+                  monthlyCount[month]++;
+                }
+              }
+            });
+            
+            setNotesMonthlyCount(monthlyCount);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch notes for monthly count:', error);
+        setNotesMonthlyCount({});
+      }
+    };
+
+    fetchNotesMonthlyCount();
+  }, [lifeCarData]);
 
   // 加载数据函数
   const loadData = async () => {
@@ -479,6 +631,24 @@ export default function Home() {
       setLifeCarMonthlyData([]);
     } finally {
       setLifeCarLoading(false);
+    }
+  };
+
+  // 加载小王测试数据函数
+  const loadXiaowangTestData = async () => {
+    try {
+      setXiaowangTestLoading(true);
+      const response = await fetch('/api/xiaowang-test');
+      if (!response.ok) {
+        throw new Error(`Failed to load xiaowang test data: ${response.statusText}`);
+      }
+      const result = await response.json();
+      setXiaowangTestData(result.data);
+    } catch (error) {
+      console.error('Failed to load xiaowang test data:', error);
+      setXiaowangTestData(null);
+    } finally {
+      setXiaowangTestLoading(false);
     }
   };
 
@@ -582,6 +752,13 @@ export default function Home() {
         { id: 'cost-interaction', name: 'Day of Week Analyse', icon: '🎯', desc: 'Day of week performance analysis' },
         { id: 'weekly-analysis', name: 'Weekly Analysis', icon: '📈', desc: 'Weekly performance metrics' },
         { id: 'activity-heatmap', name: 'Monthly Analysis', icon: '🔥', desc: 'Time-based performance patterns' }
+      ];
+    } else if (account === 'xiaowang-test') {
+      return [
+        { id: 'broker', name: 'Overview Statistics', icon: '📊', desc: 'Campaign overview and summary' },
+        { id: 'cost', name: 'Conversion Analysis', icon: '💰', desc: 'Cost and conversion metrics' },
+        { id: 'time-analysis', name: 'Broker Clients', icon: '👥', desc: 'Client acquisition analysis' },
+        { id: 'weekly-analysis', name: 'Daily Trends', icon: '📈', desc: 'Daily performance trends' }
       ];
     } else {
       return [
@@ -911,25 +1088,11 @@ export default function Home() {
             <div className="max-w-7xl mx-auto mb-6">
               <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
                 {/* 主体标签 */}
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-                      <CalendarIcon className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
+                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+                  <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+                    <CalendarIcon className="h-5 w-5 text-purple-600" />
                   </div>
-                  <Button 
-                    onClick={handleThisYear} 
-                    variant="secondary"
-                    size="sm"
-                    className={`${
-                      isThisYearSelected() 
-                        ? 'bg-purple-400 text-white hover:bg-purple-500' 
-                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                    } transition-all duration-200 font-semibold h-8 px-3 text-sm`}
-                  >
-                    This Year
-                  </Button>
+                  <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
                 </div>
                 
                 {/* 单行布局 */}
@@ -1055,6 +1218,38 @@ export default function Home() {
               </div>
             )}
 
+            {/* 浮动笔记按钮 - 只在LifeCar账号且有数据时显示 */}
+            {selectedAccount === 'lifecar' && !lifeCarLoading && filteredLifeCarData.length > 0 && (
+              <div className="fixed top-1/2 right-6 transform -translate-y-1/2 z-40 space-y-2">
+                <Button
+                  onClick={() => setShowNotesModal(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 rounded-full px-4 py-3"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium">Posts</span>
+                </Button>
+                {selectedNoteDates.length > 0 && (
+                  <Button
+                    onClick={() => setSelectedNoteDates([])}
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs text-gray-500 border-gray-300 hover:bg-gray-50"
+                  >
+                    Clear
+                  </Button>
+                )}
+                {selectedNoteDates.length > 0 && (
+                  <div className="text-xs text-gray-600 bg-white px-2 py-1 rounded shadow max-h-32 overflow-y-auto">
+                    {[...selectedNoteDates].sort().map((date, index) => (
+                      <div key={index} className="text-gray-500">{date}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* LifeCAR模块导航 */}
             <div className="max-w-7xl mx-auto mb-6">
               <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-1">
@@ -1124,7 +1319,8 @@ export default function Home() {
                       data={lifeCarMonthlyData} 
                       dailyData={lifeCarData}
                       unfilteredDailyData={lifeCarData}
-                      title="Monthly Cost Analysis" 
+                      title="Monthly Cost Analysis"
+                      selectedDates={selectedNoteDates}
                     />
                   </div>
                 )}
@@ -1148,6 +1344,8 @@ export default function Home() {
                         onMetricChange={setLifecarChartMetric}
                         isFiltered={lifecarChartFiltered}
                         onFilterChange={setLifecarChartFiltered}
+                        selectedDates={notesInDateRange}
+                        notesWeekdayCount={notesWeekdayCount}
                       />
                     )}
                     
@@ -1163,6 +1361,8 @@ export default function Home() {
                         onMetricChange={setLifecarChartMetric}
                         isFiltered={lifecarChartFiltered}
                         onFilterChange={setLifecarChartFiltered}
+                        selectedDates={notesInDateRange}
+                        notesWeekdayCount={notesWeekdayCount}
                       />
                     )}
                     
@@ -1183,6 +1383,7 @@ export default function Home() {
                         title="Monthly Metrics & Cost Analysis"
                         selectedMetric={monthlyChartMetric}
                         onMetricChange={setMonthlyChartMetric}
+                        notesMonthlyCount={notesMonthlyCount}
                       />
                     )}
                     
@@ -1193,6 +1394,7 @@ export default function Home() {
                         title="Monthly Cost Analysis"
                         selectedMetric={monthlyChartMetric}
                         onMetricChange={setMonthlyChartMetric}
+                        notesMonthlyCount={notesMonthlyCount}
                       />
                     )}
                     
@@ -1240,25 +1442,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto mb-6">
           <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
             {/* 主体标签 */}
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
-                  <CalendarIcon className="h-5 w-5 text-purple-600" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+                <CalendarIcon className="h-5 w-5 text-purple-600" />
               </div>
-              <Button 
-                onClick={handleThisYear} 
-                variant="secondary"
-                size="sm"
-                className={`${
-                  isThisYearSelected() 
-                    ? 'bg-purple-400 text-white hover:bg-purple-500' 
-                    : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                } transition-all duration-200 font-semibold h-8 px-3 text-sm`}
-              >
-                This Year
-              </Button>
+              <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
             </div>
             
             {/* 单行布局 */}
@@ -1555,130 +1743,6 @@ export default function Home() {
             {/* 检查是否有数据 */}
             {brokerDataJson.length > 0 && weeklyDataJson.length > 0 && monthlyDataJson.length > 0 ? (
               <div className="space-y-3">
-                {/* Annual Statistics Table */}
-                <div className="glass-card p-6 rounded-md glass-card-hover">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800">Annual Statistics Summary</h3>
-                      <p className="text-xs text-gray-500 mt-1">Based on actual Excel data only (no estimated data)</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setAnnualTableView('cost')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all duration-200 ${
-                          annualTableView === 'cost'
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                      >
-                        Cost View
-                      </button>
-                      <button
-                        onClick={() => setAnnualTableView('leads')}
-                        className={`px-3 py-1 text-sm font-medium rounded-md transition-all duration-200 ${
-                          annualTableView === 'leads'
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                      >
-                        Leads View
-                      </button>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b-2 border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700">Year</th>
-                          {annualTableView === 'cost' ? (
-                            <>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Cost (AUD)</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Campaign Days</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Daily Average (AUD)</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Monthly Average (AUD)</th>
-                            </>
-                          ) : (
-                            <>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Leads</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Daily Average (Leads)</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Monthly Average (Leads)</th>
-                              <th className="text-right py-3 px-4 font-semibold text-gray-700">Average Cost per Lead (AUD)</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          // 计算年度统计数据 - 只使用真实Excel数据，不包含估算数据
-                          const yearlyStats = {};
-                          
-                          // 处理周数据来计算年度统计 - 过滤掉估算数据
-                          weeklyDataJson.forEach(item => {
-                            const match = item.week?.match(/(\d{4})\/wk/);
-                            // 只处理真实数据：必须不是估算数据
-                            if (match && !item._isEstimated) {
-                              const year = match[1];
-                              if (!yearlyStats[year]) {
-                                yearlyStats[year] = {
-                                  totalCost: 0,
-                                  totalLeads: 0,
-                                  realWeeks: new Set(), // 只计算真实周数
-                                  days: 0
-                                };
-                              }
-                              yearlyStats[year].totalCost += (item.totalCost || 0);
-                              yearlyStats[year].totalLeads += (item.leadsTotal || 0);
-                              yearlyStats[year].realWeeks.add(item.week);
-                            }
-                          });
-
-                          // 计算每年的投放天数（每周7天）- 只基于真实周数
-                          Object.keys(yearlyStats).forEach(year => {
-                            yearlyStats[year].days = yearlyStats[year].realWeeks.size * 7;
-                          });
-
-                          return Object.entries(yearlyStats)
-                            .sort(([a], [b]) => b.localeCompare(a)) // 按年份降序排列
-                            .map(([year, stats]) => (
-                              <tr key={year} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                <td className="py-3 px-4 font-medium text-gray-800">{year}</td>
-                                {annualTableView === 'cost' ? (
-                                  <>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      ${stats.totalCost.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">{stats.days}</td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      ${stats.days > 0 ? (stats.totalCost / stats.days).toFixed(0) : '0'}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      ${stats.days > 0 ? ((stats.totalCost / stats.days) * 30).toFixed(0) : '0'}
-                                    </td>
-                                  </>
-                                ) : (
-                                  <>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      {stats.totalLeads.toLocaleString('en-US')}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      {stats.days > 0 ? (stats.totalLeads / stats.days).toFixed(1) : '0'}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      {stats.days > 0 ? ((stats.totalLeads / stats.days) * 30).toFixed(1) : '0'}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                      ${stats.totalLeads > 0 ? (stats.totalCost / stats.totalLeads).toFixed(0) : '0'}
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            ));
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
                 <div className="glass-card p-3 rounded-md glass-card-hover">
                   <MonthlyLeadsCost 
                     data={monthlyData} 
@@ -1803,6 +1867,193 @@ export default function Home() {
         </>
         )}
 
+        {/* 小王测试的数据面板 */}
+        {selectedAccount === 'xiaowang-test' && (
+          <>
+            {/* 小王测试数据加载状态 */}
+            {xiaowangTestLoading && (
+              <div className="max-w-7xl mx-auto mb-6 flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-purple-600 font-medium">Loading 小王测试 data...</p>
+                </div>
+              </div>
+            )}
+
+            {/* 小王测试概览统计 */}
+            {!xiaowangTestLoading && xiaowangTestData && (
+              <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Total Cost</div>
+                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
+                    ¥{xiaowangTestData.summary?.totalCost?.toFixed(0) || '0'}
+                  </div>
+                  <div className="text-xs font-semibold text-gray-600">Total advertising spend</div>
+                </div>
+
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Total Impressions</div>
+                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
+                    {xiaowangTestData.summary?.totalImpressions?.toLocaleString() || '0'}
+                  </div>
+                  <div className="text-xs font-semibold text-gray-600">Total views generated</div>
+                </div>
+
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Total Conversions</div>
+                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
+                    {xiaowangTestData.summary?.totalConversions || '0'}
+                  </div>
+                  <div className="text-xs font-semibold text-gray-600">WeChat & DM inquiries</div>
+                </div>
+
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
+                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Broker Clients</div>
+                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
+                    {xiaowangTestData.summary?.totalBrokerClients || '0'}
+                  </div>
+                  <div className="text-xs font-semibold text-gray-600">Total broker clients</div>
+                </div>
+              </div>
+            )}
+
+            {/* 小王测试模块导航 */}
+            {!xiaowangTestLoading && xiaowangTestData && (
+              <div className="max-w-7xl mx-auto mb-6">
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-1">
+                  <div className="flex">
+                    {allModules.map((module, index) => {
+                      const isHidden = accountHiddenModules.includes(module.id);
+                      const isActive = activeModule === module.id;
+                      return (
+                        <div key={module.id} className={`flex-1 relative ${
+                          isHidden ? 'opacity-50' : ''
+                        }`}>
+                          <button
+                            onClick={() => !isHidden && handleModuleChange(module.id)}
+                            disabled={isHidden}
+                            className={`w-full px-4 py-3 text-sm font-medium transition-all duration-200 ${
+                              isActive && !isHidden
+                                ? 'bg-gradient-to-r from-[#751FAE] to-[#EF3C99] text-white shadow-md'
+                                : isHidden
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-transparent hover:bg-gray-50 text-gray-700'
+                            } ${
+                              index === 0 ? 'rounded-l-lg' : index === allModules.length - 1 ? 'rounded-r-lg' : ''
+                            }`}
+                          >
+                            {module.name}
+                          </button>
+                          <button
+                            onClick={() => toggleModuleVisibility(module.id)}
+                            className="absolute top-1 right-1 p-1 rounded-full hover:bg-black/10 transition-colors duration-200"
+                            title={isHidden ? 'Show module' : 'Hide module'}
+                          >
+                            {isHidden ? (
+                              <EyeOff className="w-3 h-3 text-gray-400" />
+                            ) : (
+                              <Eye className="w-3 h-3 text-gray-500 hover:text-gray-700" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 小王测试动态内容区域 */}
+            {!xiaowangTestLoading && xiaowangTestData && (
+              <>
+                {activeModule === 'broker' && (
+                  <div className="max-w-7xl mx-auto mb-4 space-y-6">
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[#751FAE]"></div>
+                      小王测试 Campaign Overview
+                    </h2>
+                    
+                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-8">
+                      <div className="text-center">
+                        <div className="text-6xl mb-6">🧪</div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-4">Campaign Overview</h3>
+                        <p className="text-gray-500 mb-4">Data successfully loaded from advertising and broker sources.</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="font-bold text-purple-600">{xiaowangTestData.adData?.length || 0}</div>
+                            <div className="text-gray-500">Ad Records</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-purple-600">{xiaowangTestData.brokerData?.length || 0}</div>
+                            <div className="text-gray-500">Broker Records</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-purple-600">{xiaowangTestData.summary?.avgClickRate?.toFixed(1) || '0.0'}%</div>
+                            <div className="text-gray-500">Avg Click Rate</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-purple-600">¥{xiaowangTestData.summary?.avgConversionCost?.toFixed(1) || '0.0'}</div>
+                            <div className="text-gray-500">Avg Conversion Cost</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Placeholder for other modules */}
+                {activeModule !== 'broker' && (
+                  <div className="max-w-7xl mx-auto mb-4">
+                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12 text-center">
+                      <div className="text-6xl mb-6">🚧</div>
+                      <h3 className="text-xl font-semibold text-gray-700 mb-4">Module Under Development</h3>
+                      <p className="text-gray-500">This module is currently being developed. More features coming soon!</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* 无数据状态 */}
+            {!xiaowangTestLoading && !xiaowangTestData && (
+              <div className="max-w-7xl mx-auto flex items-center justify-center py-12">
+                <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12">
+                  <div className="text-6xl mb-6">🧪</div>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
+                  <p className="text-gray-500 mb-4">小王测试 data could not be loaded. Please check if the data files exist.</p>
+                  <button
+                    onClick={loadXiaowangTestData}
+                    className="bg-gradient-to-r from-[#751FAE] to-[#EF3C99] text-white px-6 py-2 rounded-lg hover:from-[#6919A6] hover:to-[#E73691] transition-all duration-200"
+                  >
+                    Retry Loading Data
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
       </div>
       
       {/* Upload Modal - 移到所有条件外部 */}
@@ -1850,6 +2101,25 @@ export default function Home() {
           </div>
         </div>
       )}
+      
+      {/* LifeCar Notes Modal */}
+      <LifeCarNotesModal 
+        isOpen={showNotesModal} 
+        onClose={() => setShowNotesModal(false)}
+        onDateSelect={(date) => {
+          setSelectedNoteDates(prev => {
+            const chartDate = date.split(' ')[0]; // Extract date part
+            if (prev.includes(chartDate)) {
+              // Remove if already selected
+              return prev.filter(d => d !== chartDate);
+            } else {
+              // Add if not selected
+              return [...prev, chartDate];
+            }
+          });
+        }}
+        selectedDates={selectedNoteDates}
+      />
       
     </div>
   );

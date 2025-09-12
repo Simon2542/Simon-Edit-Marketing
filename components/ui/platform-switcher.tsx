@@ -18,6 +18,7 @@ interface AccountSwitcherProps {
 const accounts = [
   { value: "xiaowang", label: "澳洲小王Broker咨询", icon: "👨‍💼" },
   { value: "lifecar", label: "LifeCAR澳洲Broker", icon: "🚗" },
+  { value: "xiaowang-test", label: "小王测试", icon: "🧪" },
 ]
 
 export function AccountSwitcher({ onAccountChange, defaultAccount = "xiaowang" }: AccountSwitcherProps) {

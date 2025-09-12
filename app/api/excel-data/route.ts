@@ -3,51 +3,10 @@ import * as XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
 
-// Helper function to generate missing weekly data from clients_info
-function generateMissingWeeklyData(existingWeeklyData: any[], clientsData: any[]) {
-  // Create a map of existing weeks
-  const existingWeeks = new Set(existingWeeklyData.map(w => w.week));
-  
-  // Group clients by week
-  const clientsByWeek: { [week: string]: any[] } = {};
-  
-  clientsData.forEach(client => {
-    const clientDate = parseExcelDate(client.date);
-    if (clientDate) {
-      const weekStr = getWeekString(clientDate);
-      if (!clientsByWeek[weekStr]) {
-        clientsByWeek[weekStr] = [];
-      }
-      clientsByWeek[weekStr].push(client);
-    }
-  });
-  
-  // Generate missing weeks
-  const missingWeeks: any[] = [];
-  Object.keys(clientsByWeek).forEach(weekStr => {
-    if (!existingWeeks.has(weekStr)) {
-      const leadsCount = clientsByWeek[weekStr].length;
-      // Estimate cost based on average from existing data
-      const avgCostPerLead = existingWeeklyData.length > 0 
-        ? existingWeeklyData.reduce((sum, w) => sum + (w.totalCost || 0), 0) / 
-          existingWeeklyData.reduce((sum, w) => sum + (w.leadsTotal || 0), 0)
-        : 20; // Default cost per lead if no existing data
-      
-      const estimatedCost = leadsCount * avgCostPerLead;
-      
-      missingWeeks.push({
-        week: weekStr,
-        totalCost: estimatedCost,
-        leadsTotal: leadsCount,
-        leadsPrice: leadsCount > 0 ? estimatedCost / leadsCount : 0,
-        _isEstimated: true // 标记为估算数据
-      });
-    }
-  });
-  
-  // Combine existing and missing weeks, then sort
-  const allWeeks = [...existingWeeklyData, ...missingWeeks];
-  allWeeks.sort((a, b) => {
+// Helper function - no longer generates estimated data, only returns actual data
+function processWeeklyData(existingWeeklyData: any[]) {
+  // Sort weekly data chronologically
+  existingWeeklyData.sort((a, b) => {
     const parseWeek = (week: string) => {
       const match = week.match(/(\d{4})\/wk(\d+)/);
       if (match) {
@@ -60,7 +19,8 @@ function generateMissingWeeklyData(existingWeeklyData: any[], clientsData: any[]
     return parseWeek(a.week) - parseWeek(b.week);
   });
   
-  return allWeeks;
+  // Return only actual data from Excel, no estimates
+  return existingWeeklyData;
 }
 
 // Helper function to parse Excel date serial number
@@ -236,16 +196,15 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
       return parseWeek(a.week) - parseWeek(b.week);
     });
     
-    // Generate missing weeks from clients_info data
-    const clientsData = results.broker_data || [];
-    const enhancedWeeklyData = generateMissingWeeklyData(weeklyData, clientsData);
+    // Process weekly data without generating estimates
+    const processedWeeklyData = processWeeklyData(weeklyData);
     
-    results.weekly_data = enhancedWeeklyData;
+    results.weekly_data = processedWeeklyData;
     
-    const totalLeads = enhancedWeeklyData.reduce((sum, w) => sum + w.leadsTotal, 0);
-    console.log(`Enhanced weekly data: ${enhancedWeeklyData.length} weeks, ${totalLeads} total leads`);
+    const totalLeads = processedWeeklyData.reduce((sum, w) => sum + w.leadsTotal, 0);
+    console.log(`Processed weekly data: ${processedWeeklyData.length} weeks, ${totalLeads} total leads`);
     
-    console.log(`Processed ${enhancedWeeklyData.length} weekly records`);
+    console.log(`Processed ${processedWeeklyData.length} weekly records`);
   }
 
   // Process monthly data - combine cost data with actual client counts

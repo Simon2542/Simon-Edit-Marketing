@@ -16,6 +16,8 @@ interface CostPerFollowerDailyChartProps {
   onMetricChange?: (metric: 'views' | 'likes' | 'followers') => void // Shared metric change handler
   isFiltered?: boolean // Shared filter state
   onFilterChange?: (filtered: boolean) => void // Shared filter change handler
+  selectedDates?: string[] // Selected dates for vertical lines
+  notesWeekdayCount?: {[key: string]: number} // Notes count by weekday
 }
 
 interface DailyData {
@@ -197,7 +199,9 @@ export function CostPerFollowerDailyChart({
   selectedMetric: propSelectedMetric,
   onMetricChange,
   isFiltered: propIsFiltered,
-  onFilterChange
+  onFilterChange,
+  selectedDates = [],
+  notesWeekdayCount = {}
 }: CostPerFollowerDailyChartProps) {
   // Use shared state from props, fallback to default values
   const isFiltered = propIsFiltered ?? true
@@ -301,6 +305,36 @@ export function CostPerFollowerDailyChart({
     
     // Otherwise, it's already a weekday string (Mon, Tue, etc.)
     return dateStr
+  }
+
+  // Custom tick component for multi-line display
+  const CustomTick = (props: any) => {
+    const { x, y, payload } = props
+    const dateStr = payload.value
+    
+    // Show Posts count when: (non-7-day range) OR (using "All data" mode in chart)
+    if (!isSevenDayRange || !isFiltered) {
+      const postsCount = notesWeekdayCount && notesWeekdayCount[dateStr] ? notesWeekdayCount[dateStr] : 0
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text x={0} y={0} dy={16} textAnchor="middle" fill="#6B7280" fontSize="12">
+            {dateStr}
+          </text>
+          <text x={0} y={0} dy={32} textAnchor="middle" fill="#6B7280" fontSize="11">
+            {postsCount} Posts
+          </text>
+        </g>
+      )
+    }
+    
+    // For 7-day range, use regular formatting
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#6B7280" fontSize="12">
+          {formatDate(dateStr)}
+        </text>
+      </g>
+    )
   }
 
   // Get metric display info
@@ -449,11 +483,8 @@ export function CostPerFollowerDailyChart({
             >
               <XAxis 
                 dataKey="date" 
-                tick={{ fontSize: 12, fill: '#6B7280' }}
-                tickFormatter={formatDate}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                tick={<CustomTick />}
+                height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
               />
@@ -480,7 +511,35 @@ export function CostPerFollowerDailyChart({
                 dataKey={selectedMetric}
                 stroke={currentMetricInfo.color}
                 strokeWidth={3}
-                dot={{ fill: currentMetricInfo.color, strokeWidth: 2, r: 4 }}
+                dot={(props: any) => {
+                  const isSelected = selectedDates.length > 0 && props.payload && selectedDates.includes(props.payload.date)
+                  
+                  return (
+                    <g>
+                      {/* Normal dot - same format as other lines */}
+                      <circle
+                        cx={props.cx}
+                        cy={props.cy}
+                        r={4}
+                        fill={currentMetricInfo.color}
+                        strokeWidth={2}
+                      />
+                      {/* Vertical line for selected dates */}
+                      {isSelected && (
+                        <line
+                          x1={props.cx}
+                          y1={30}
+                          x2={props.cx}
+                          y2={280}
+                          stroke="#6B7280"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          opacity={0.8}
+                        />
+                      )}
+                    </g>
+                  )
+                }}
                 name={`${currentMetricInfo.label} ($)`}
                 connectNulls={false}
               />

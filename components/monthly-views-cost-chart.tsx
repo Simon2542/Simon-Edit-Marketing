@@ -11,6 +11,7 @@ interface MonthlyViewsCostChartProps {
   title?: string
   selectedMetric?: 'views' | 'likes' | 'followers'
   onMetricChange?: (metric: 'views' | 'likes' | 'followers') => void
+  notesMonthlyCount?: {[key: string]: number}
 }
 
 interface MonthlyData {
@@ -236,7 +237,8 @@ export function MonthlyViewsCostChart({
   data, 
   title = "Monthly Metrics & Cost Analysis",
   selectedMetric: propSelectedMetric,
-  onMetricChange
+  onMetricChange,
+  notesMonthlyCount = {}
 }: MonthlyViewsCostChartProps) {
   // Use shared state from props, fallback to default values
   const selectedMetric = propSelectedMetric ?? 'views'
@@ -314,6 +316,24 @@ export function MonthlyViewsCostChart({
     const [year, month] = monthStr.split('-')
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     return `${monthNames[parseInt(month) - 1]} ${year}`
+  }
+
+  // Custom tick component for X-axis with Posts count
+  const CustomTick = (props: any) => {
+    const { x, y, payload } = props
+    const monthStr = payload.value
+    const postsCount = notesMonthlyCount && notesMonthlyCount[monthStr] ? notesMonthlyCount[monthStr] : 0
+    
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={0} dy={16} textAnchor="middle" fill="#6B7280" fontSize="12">
+          {formatMonth(monthStr)}
+        </text>
+        <text x={0} y={0} dy={32} textAnchor="middle" fill="#6B7280" fontSize="11">
+          {postsCount} Posts
+        </text>
+      </g>
+    )
   }
 
   // Custom tooltip
@@ -422,11 +442,8 @@ export function MonthlyViewsCostChart({
             >
               <XAxis 
                 dataKey="month" 
-                tick={{ fontSize: 12, fill: '#6B7280' }}
-                tickFormatter={formatMonth}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                tick={<CustomTick />}
+                height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
               />

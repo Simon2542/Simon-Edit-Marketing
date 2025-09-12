@@ -9,9 +9,10 @@ interface LifeCarMonthlySummaryProps {
   dailyData?: LifeCarDailyData[]
   unfilteredDailyData?: LifeCarDailyData[]  // 新增：未筛选的原始数据
   title?: string
+  selectedDates?: string[]
 }
 
-export function LifeCarMonthlySummary({ data, dailyData = [], unfilteredDailyData, title = "Monthly Performance Summary" }: LifeCarMonthlySummaryProps) {
+export function LifeCarMonthlySummary({ data, dailyData = [], unfilteredDailyData, title = "Monthly Performance Summary", selectedDates = [] }: LifeCarMonthlySummaryProps) {
 
   return (
     <div className="space-y-6">
@@ -21,6 +22,7 @@ export function LifeCarMonthlySummary({ data, dailyData = [], unfilteredDailyDat
           <DualAxisRollingAverageChart 
             data={unfilteredDailyData} 
             title="7-Day Rolling Average Analysis: Cost & Views"
+            selectedDates={selectedDates}
           />
           
         </>
