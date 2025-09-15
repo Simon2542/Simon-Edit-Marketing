@@ -1,41 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
 
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
-    // First check for uploaded data
-    const uploadedDataPath = path.join(process.cwd(), 'public', 'lifecar-notes-data.json')
+    const formData = await request.formData()
+    const file = formData.get('file') as File
     
-    if (fs.existsSync(uploadedDataPath)) {
-      // Use uploaded data if it exists
-      const uploadedData = JSON.parse(fs.readFileSync(uploadedDataPath, 'utf-8'))
-      return NextResponse.json({ 
-        success: true, 
-        data: uploadedData,
-        total: uploadedData.length,
-        source: 'uploaded'
-      })
-    }
-    
-    // Fall back to original Excel file
-    const filePath = path.join(process.cwd(), 'full data', 'LifeCar笔记.xlsx')
-    console.log('Trying to access file at:', filePath)
-    console.log('File exists:', fs.existsSync(filePath))
-    
-    if (!fs.existsSync(filePath)) {
-      // No data available
-      return NextResponse.json({ 
-        success: true, 
-        data: [],
-        total: 0,
-        message: '请上传Excel文件以查看数据'
-      })
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    const fileBuffer = fs.readFileSync(filePath)
-    const workbook = XLSX.read(fileBuffer, { type: 'buffer' })
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+
+    // Parse Excel file
+    const workbook = XLSX.read(buffer, { type: 'buffer' })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
     
@@ -72,18 +54,22 @@ export async function GET() {
       名称: row['笔记名称'] || '',
       链接: row['笔记链接'] || ''
     }))
-    
+
+    // Save to JSON file in public directory for persistence
+    const dataPath = path.join(process.cwd(), 'public', 'lifecar-notes-data.json')
+    fs.writeFileSync(dataPath, JSON.stringify(processedData, null, 2))
+
     return NextResponse.json({ 
       success: true, 
       data: processedData,
       total: processedData.length,
-      source: 'default'
+      message: `成功上传 ${processedData.length} 条记录`
     })
     
   } catch (error) {
-    console.error('Error processing Excel file:', error)
+    console.error('Error processing uploaded file:', error)
     return NextResponse.json({ 
-      error: 'Failed to process Excel file',
+      error: 'Failed to process uploaded file',
       details: error instanceof Error ? error.message : String(error)
     }, { status: 500 })
   }

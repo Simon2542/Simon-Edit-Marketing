@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { X, ExternalLink, FileText } from "lucide-react"
+import { X, ExternalLink, FileText, Upload, Trash2 } from "lucide-react"
 
 interface LifeCarNote {
   发布时间: string
@@ -22,6 +22,9 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
   const [notes, setNotes] = useState<LifeCarNote[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [dataSource, setDataSource] = useState<'uploaded' | 'default' | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -53,6 +56,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       const result = await response.json()
       if (result.success) {
         setNotes(result.data)
+        setDataSource(result.source || null)
       } else {
         throw new Error(result.error || 'Unknown error')
       }
@@ -60,6 +64,64 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       setError(err instanceof Error ? err.message : 'Failed to load notes')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setError(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await fetch('/api/lifecar-notes/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file')
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        setNotes(result.data)
+        setDataSource('uploaded')
+        // Clear file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      } else {
+        throw new Error(result.error || 'Upload failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload file')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleClearData = async () => {
+    if (!confirm('确定要清除所有数据吗？')) return
+
+    try {
+      const response = await fetch('/api/lifecar-notes/clear', {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear data')
+      }
+
+      setNotes([])
+      setError(null)
+      setDataSource(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear data')
     }
   }
 
@@ -105,14 +167,49 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
             <FileText className="w-5 h-5 text-purple-600" />
             <h2 className="text-xl font-semibold text-gray-900">LifeCar 笔记列表</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="lifecar-file-upload"
+            />
+            <label htmlFor="lifecar-file-upload">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                className="cursor-pointer"
+                asChild
+              >
+                <span>
+                  <Upload className="w-4 h-4 mr-2" />
+                  {uploading ? '上传中...' : '上传Excel'}
+                </span>
+              </Button>
+            </label>
+            {notes.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearData}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                清除数据
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0 hover:bg-gray-100"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
