@@ -1,0 +1,466 @@
+"use client"
+
+import React, { useMemo } from 'react';
+
+interface XiaowangTestWeeklyAnalysisAdaptedProps {
+  weeklyData?: any[];
+  brokerData?: any[];
+}
+
+interface WeeklyMetrics {
+  weekStart: string
+  weekEnd: string
+  weekEndDate: Date
+  totalCost: number
+  totalViews: number
+  totalLikes: number
+  totalNewFollowers: number
+  totalLeads: number
+  costChange?: number
+  viewsChange?: number
+  likesChange?: number
+  newFollowersChange?: number
+  leadsChange?: number
+}
+
+export function XiaowangTestWeeklyOverallAverage({ weeklyData = [], brokerData = [] }: XiaowangTestWeeklyAnalysisAdaptedProps) {
+  // Process data to get weekly metrics - same logic as original XiaowangTestWeeklyAnalysis
+  const weeklyMetrics = useMemo(() => {
+    if (!weeklyData || !Array.isArray(weeklyData)) {
+      return []
+    }
+
+    // Create a map of leads by date from broker data
+    const leadsPerDate: Record<string, number> = {}
+
+    if (brokerData && Array.isArray(brokerData)) {
+      brokerData.forEach(item => {
+        if (!item || typeof item !== 'object') return
+
+        let dateValue: string | null = null
+
+        // Try different date field names
+        const dateFields = ['Date', 'date', '时间', 'Date ', 'date ']
+        for (const field of dateFields) {
+          if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+            if (typeof item[field] === 'number') {
+              // Excel serial number conversion
+              const excelDate = new Date((item[field] - 25569) * 86400 * 1000)
+              if (!isNaN(excelDate.getTime())) {
+                dateValue = excelDate.toISOString().split('T')[0]
+                break
+              }
+            } else if (typeof item[field] === 'string') {
+              // Try to parse string date
+              const parsedDate = new Date(item[field])
+              if (!isNaN(parsedDate.getTime())) {
+                dateValue = parsedDate.toISOString().split('T')[0]
+                break
+              }
+            }
+          }
+        }
+
+        if (dateValue) {
+          leadsPerDate[dateValue] = (leadsPerDate[dateValue] || 0) + 1
+        }
+      })
+    }
+
+    // Group data by week
+    const weekMap = new Map<string, any[]>()
+
+    weeklyData.forEach((item: any) => {
+      // Parse date in local timezone to avoid timezone offset issues
+      const [year, month, day] = item.date.split('-').map(Number)
+      const date = new Date(year, month - 1, day, 12, 0, 0, 0) // Set to noon
+      const weekStart = new Date(date)
+      const dayOfWeek = weekStart.getDay()
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      weekStart.setDate(weekStart.getDate() - daysFromMonday)
+      weekStart.setHours(0, 0, 0, 0)
+
+      const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, [])
+      }
+      weekMap.get(weekKey)?.push({
+        ...item,
+        leads: leadsPerDate[item.date] || 0
+      })
+    })
+
+    // Calculate metrics for each week
+    const weeks: WeeklyMetrics[] = []
+
+    weekMap.forEach((weekData, weekStartStr) => {
+      const weekStart = new Date(weekStartStr)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+
+      const metrics: WeeklyMetrics = {
+        weekStart: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        weekEnd: weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        weekEndDate: weekEnd,
+        totalCost: weekData.reduce((sum, d) => sum + (d.cost || 0), 0),
+        totalViews: weekData.reduce((sum, d) => sum + (d.clicks || 0), 0),
+        totalLikes: weekData.reduce((sum, d) => sum + (d.likes || 0), 0),
+        totalNewFollowers: weekData.reduce((sum, d) => sum + (d.followers || 0), 0),
+        totalLeads: weekData.reduce((sum, d) => sum + (d.leads || 0), 0)
+      }
+
+      weeks.push(metrics)
+    })
+
+    return weeks
+  }, [weeklyData, brokerData])
+
+  // Calculate overall averages
+  const overallAverages = useMemo(() => {
+    if (weeklyMetrics.length === 0) {
+      return {
+        avgCost: 0,
+        avgDailyCost: 0,
+        avgViews: 0,
+        avgLeads: 0,
+        avgCostPerLead: 0,
+        totalWeeks: 0,
+      }
+    }
+
+    const totals = weeklyMetrics.reduce((acc, week) => ({
+      totalCost: acc.totalCost + week.totalCost,
+      totalViews: acc.totalViews + week.totalViews,
+      totalLeads: acc.totalLeads + week.totalLeads,
+    }), { totalCost: 0, totalViews: 0, totalLeads: 0 })
+
+    const weekCount = weeklyMetrics.length
+
+    return {
+      avgCost: totals.totalCost / weekCount,
+      avgDailyCost: (totals.totalCost / weekCount) / 7,
+      avgViews: totals.totalViews / weekCount,
+      avgLeads: totals.totalLeads / weekCount,
+      avgCostPerLead: totals.totalLeads > 0 ? totals.totalCost / totals.totalLeads : 0,
+      totalWeeks: weekCount,
+    }
+  }, [weeklyMetrics])
+
+  return (
+    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6">
+      <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+        <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+          <span className="text-purple-600 text-lg">📊</span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-800 font-montserrat">Overall Weekly Average (All Time)</h3>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-5 text-center hover:shadow-lg transition-all duration-200">
+          <div className="text-sm font-semibold text-[#751FAE] mb-2 font-montserrat">Avg Weekly Cost</div>
+          <div className="text-3xl font-semibold text-[#FF1493] font-montserrat">
+            ${overallAverages.avgCost.toFixed(0)}
+          </div>
+        </div>
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-5 text-center hover:shadow-lg transition-all duration-200">
+          <div className="text-sm font-semibold text-[#751FAE] mb-2 font-montserrat">Avg Daily Cost</div>
+          <div className="text-3xl font-semibold text-[#FF1493] font-montserrat">
+            ${overallAverages.avgDailyCost.toFixed(0)}
+          </div>
+        </div>
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-5 text-center hover:shadow-lg transition-all duration-200">
+          <div className="text-sm font-semibold text-[#751FAE] mb-2 font-montserrat">Avg Weekly Views</div>
+          <div className="text-3xl font-semibold text-[#FF1493] font-montserrat">
+            {overallAverages.avgViews.toFixed(0)}
+          </div>
+        </div>
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-5 text-center hover:shadow-lg transition-all duration-200">
+          <div className="text-sm font-semibold text-[#751FAE] mb-2 font-montserrat">Avg Weekly Leads</div>
+          <div className="text-3xl font-semibold text-[#FF1493] font-montserrat">
+            {overallAverages.avgLeads.toFixed(1)}
+          </div>
+        </div>
+        <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-5 text-center hover:shadow-lg transition-all duration-200">
+          <div className="text-sm font-semibold text-[#751FAE] mb-2 font-montserrat">Avg Cost per Lead</div>
+          <div className="text-3xl font-semibold text-[#FF1493] font-montserrat">
+            ${overallAverages.avgCostPerLead.toFixed(2)}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function XiaowangTestWeeklyAnalysis({ weeklyData = [], brokerData = [] }: XiaowangTestWeeklyAnalysisAdaptedProps) {
+  // Process data to get weekly metrics - same logic as original XiaowangTestWeeklyAnalysis
+  const weeklyMetrics = useMemo(() => {
+    if (!weeklyData || !Array.isArray(weeklyData)) {
+      return []
+    }
+
+    // Create a map of leads by date from broker data
+    const leadsPerDate: Record<string, number> = {}
+
+    if (brokerData && Array.isArray(brokerData)) {
+      brokerData.forEach(item => {
+        if (!item || typeof item !== 'object') return
+
+        let dateValue: string | null = null
+
+        // Try different date field names
+        const dateFields = ['Date', 'date', '时间', 'Date ', 'date ']
+        for (const field of dateFields) {
+          if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+            if (typeof item[field] === 'number') {
+              // Excel serial number conversion
+              const excelDate = new Date((item[field] - 25569) * 86400 * 1000)
+              if (!isNaN(excelDate.getTime())) {
+                dateValue = excelDate.toISOString().split('T')[0]
+                break
+              }
+            } else if (typeof item[field] === 'string') {
+              // Try to parse string date
+              const parsedDate = new Date(item[field])
+              if (!isNaN(parsedDate.getTime())) {
+                dateValue = parsedDate.toISOString().split('T')[0]
+                break
+              }
+            }
+          }
+        }
+
+        if (dateValue) {
+          leadsPerDate[dateValue] = (leadsPerDate[dateValue] || 0) + 1
+        }
+      })
+    }
+
+    // Group data by week
+    const weekMap = new Map<string, any[]>()
+
+    weeklyData.forEach((item: any) => {
+      // Parse date in local timezone to avoid timezone offset issues
+      const [year, month, day] = item.date.split('-').map(Number)
+      const date = new Date(year, month - 1, day, 12, 0, 0, 0) // Set to noon
+      const weekStart = new Date(date)
+      const dayOfWeek = weekStart.getDay()
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      weekStart.setDate(weekStart.getDate() - daysFromMonday)
+      weekStart.setHours(0, 0, 0, 0)
+
+      const weekKey = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, [])
+      }
+      weekMap.get(weekKey)?.push({
+        ...item,
+        leads: leadsPerDate[item.date] || 0
+      })
+    })
+
+    // Calculate metrics for each week
+    const weeks: WeeklyMetrics[] = []
+
+    weekMap.forEach((weekData, weekStartStr) => {
+      const weekStart = new Date(weekStartStr)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+
+      const metrics: WeeklyMetrics = {
+        weekStart: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        weekEnd: weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        weekEndDate: weekEnd,
+        totalCost: weekData.reduce((sum, d) => sum + (d.cost || 0), 0),
+        totalViews: weekData.reduce((sum, d) => sum + (d.clicks || 0), 0),
+        totalLikes: weekData.reduce((sum, d) => sum + (d.likes || 0), 0),
+        totalNewFollowers: weekData.reduce((sum, d) => sum + (d.followers || 0), 0),
+        totalLeads: weekData.reduce((sum, d) => sum + (d.leads || 0), 0)
+      }
+
+      weeks.push(metrics)
+    })
+
+    // Sort weeks chronologically
+    weeks.sort((a, b) => {
+      const dateA = new Date(a.weekStart + ', ' + a.weekEnd.split(', ')[1])
+      const dateB = new Date(b.weekStart + ', ' + b.weekEnd.split(', ')[1])
+      return dateA.getTime() - dateB.getTime()
+    })
+
+    // Calculate week-over-week changes
+    for (let i = 1; i < weeks.length; i++) {
+      const current = weeks[i]
+      const previous = weeks[i - 1]
+
+      if (previous.totalCost > 0) {
+        current.costChange = ((current.totalCost - previous.totalCost) / previous.totalCost) * 100
+      }
+      if (previous.totalViews > 0) {
+        current.viewsChange = ((current.totalViews - previous.totalViews) / previous.totalViews) * 100
+      }
+      if (previous.totalLikes > 0) {
+        current.likesChange = ((current.totalLikes - previous.totalLikes) / previous.totalLikes) * 100
+      }
+      if (previous.totalNewFollowers > 0) {
+        current.newFollowersChange = ((current.totalNewFollowers - previous.totalNewFollowers) / previous.totalNewFollowers) * 100
+      }
+      if (previous.totalLeads > 0) {
+        current.leadsChange = ((current.totalLeads - previous.totalLeads) / previous.totalLeads) * 100
+      }
+    }
+
+    // Reverse to show latest week first, and show only last 12 weeks
+    return weeks.reverse().slice(0, 12)
+  }, [weeklyData, brokerData])
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M'
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K'
+    }
+    return num.toFixed(0)
+  }
+
+  const formatWeekEndDate = (weekEndDate: Date) => {
+    return weekEndDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const renderChangePercent = (change: number | undefined, metricType: 'positive' | 'negative' = 'positive') => {
+    if (change === undefined) return null
+
+    const isPositive = change > 0
+    const arrow = isPositive ? '↑' : change < 0 ? '↓' : '→'
+    let color = ''
+
+    // For most metrics, positive change is good (green), negative is bad (red)
+    // For costs, it's reversed - lower is better
+    if (metricType === 'positive') {
+      color = isPositive ? 'text-green-600' : 'text-red-600'
+    } else { // costs - reversed colors
+      color = isPositive ? 'text-red-600' : 'text-green-600'
+    }
+
+    return (
+      <span className={`${color} text-xs font-medium font-montserrat`}>
+        {arrow} {Math.abs(change).toFixed(1)}%
+      </span>
+    )
+  }
+
+  if (!weeklyMetrics || weeklyMetrics.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-4">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+              <span className="text-purple-600 text-lg">📅</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 font-montserrat">Weekly Performance Details</h3>
+          </div>
+        </div>
+        <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-8">
+          <p className="text-center text-gray-500">No weekly data available</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Weekly Performance Details Header */}
+      <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+            <span className="text-purple-600 text-lg">📅</span>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 font-montserrat">Weekly Performance Details</h3>
+        </div>
+      </div>
+
+      {/* Individual Weekly Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {weeklyMetrics.map((weekData, index) => (
+          <div key={index} className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-4">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+              <div className="flex-1">
+                <h4 className="text-2xl font-black text-[#751FAE] font-montserrat">
+                  Week of {formatWeekEndDate(weekData.weekEndDate)}
+                </h4>
+              </div>
+              {index === 0 && (
+                <span className="px-2 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs rounded-full font-semibold">
+                  Latest
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {/* Total Cost */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Total Cost</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">${formatNumber(weekData.totalCost)}</div>
+                  {renderChangePercent(weekData.costChange, 'negative')}
+                </div>
+              </div>
+
+              {/* Views */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Views</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalViews)}</div>
+                  {renderChangePercent(weekData.viewsChange, 'positive')}
+                </div>
+              </div>
+
+              {/* Likes */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Likes</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLikes)}</div>
+                  {renderChangePercent(weekData.likesChange, 'positive')}
+                </div>
+              </div>
+
+              {/* New Followers */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">New Followers</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalNewFollowers)}</div>
+                  {renderChangePercent(weekData.newFollowersChange, 'positive')}
+                </div>
+              </div>
+
+              {/* Leads */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Leads</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLeads)}</div>
+                  {renderChangePercent(weekData.leadsChange, 'positive')}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

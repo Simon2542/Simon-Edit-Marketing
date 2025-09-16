@@ -28,6 +28,15 @@ import { MonthlyViewsCostChart } from "@/components/monthly-views-cost-chart"
 import { MonthlyCostPerMetricChart } from "@/components/monthly-cost-per-metric-chart"
 import { parseLifeCarData, aggregateByMonth, filterByDateRange, type LifeCarDailyData, type LifeCarMonthlyData } from "@/lib/lifecar-data-processor"
 import { LifeCarNotesModal } from "@/components/lifecar-notes-modal"
+import { XiaowangUpload } from "@/components/xiaowang-upload"
+import { XiaowangTestCostAnalysis } from "@/components/xiaowang-test-cost-analysis"
+import { XiaowangTestCostPerMetric } from "@/components/xiaowang-test-cost-per-metric"
+import { XiaowangTestWeeklyCostAnalysis } from "@/components/xiaowang-test-weekly-cost-analysis"
+import { XiaowangTestWeeklyCostPerMetric } from "@/components/xiaowang-test-weekly-cost-per-metric"
+import { XiaowangTestWeeklyAnalysis } from "@/components/xiaowang-test-weekly-analysis"
+import { XiaowangTestWeeklyOverallAverage, XiaowangTestWeeklyAnalysis as XiaowangTestWeeklyAnalysisAdapted } from "@/components/xiaowang-test-weekly-analysis-adapted"
+import { XiaowangTestMonthlyCostAnalysis } from "@/components/xiaowang-test-monthly-cost-analysis"
+import { XiaowangTestMonthlyCostPerMetric } from "@/components/xiaowang-test-monthly-cost-per-metric"
 // 移除静态导入，改为动态API调用
 
 // 小王测试数据类型定义
@@ -237,12 +246,42 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState('broker');
   const [showUpload, setShowUpload] = useState(false);
   const [uploadAccountType, setUploadAccountType] = useState<'lifecar' | 'xiaowang'>('xiaowang');
+  const [showXiaowangTestUpload, setShowXiaowangTestUpload] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hiddenModules, setHiddenModules] = useState<{[account: string]: string[]}>({});
   
   // 账号筛选状态
   const [selectedAccount, setSelectedAccount] = useState('xiaowang');
+
+  // 小王测试组件间共享的指标选择状态
+  const [xiaowangSelectedMetric, setXiaowangSelectedMetric] = useState<'views' | 'likes' | 'followers' | 'leads'>('views');
+
+  // 小王咨询Weekly Performance时间段筛选状态
+  const [weeklyTimePeriod, setWeeklyTimePeriod] = useState<'3months' | '6months' | '1year'>('3months');
+
+  // 计算Weekly Performance的时间范围
+  const getWeeklyTimePeriodRange = () => {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (weeklyTimePeriod) {
+      case '3months':
+        startDate.setMonth(endDate.getMonth() - 3);
+        break;
+      case '6months':
+        startDate.setMonth(endDate.getMonth() - 6);
+        break;
+      case '1year':
+        startDate.setFullYear(endDate.getFullYear() - 1);
+        break;
+    }
+
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0]
+    };
+  };
   
   // 日期范围状态（替代之前的dateRange）
   const [startDate, setStartDate] = useState('');
@@ -268,10 +307,10 @@ export default function Home() {
       setMonthlyChartMetric('views');
     }
     
-    // 当切换到小王测试账号时，自动加载数据
-    if (account === 'xiaowang-test') {
-      loadXiaowangTestData();
-    }
+    // 小王测试账号不自动加载数据，只使用上传的数据
+    // if (account === 'xiaowang-test') {
+    //   loadXiaowangTestData();
+    // }
   };
 
   // 模块切换处理函数
@@ -634,23 +673,23 @@ export default function Home() {
     }
   };
 
-  // 加载小王测试数据函数
-  const loadXiaowangTestData = async () => {
-    try {
-      setXiaowangTestLoading(true);
-      const response = await fetch('/api/xiaowang-test');
-      if (!response.ok) {
-        throw new Error(`Failed to load xiaowang test data: ${response.statusText}`);
-      }
-      const result = await response.json();
-      setXiaowangTestData(result.data);
-    } catch (error) {
-      console.error('Failed to load xiaowang test data:', error);
-      setXiaowangTestData(null);
-    } finally {
-      setXiaowangTestLoading(false);
-    }
-  };
+  // 移除预加载数据函数 - 小王测试只使用上传的数据
+  // const loadXiaowangTestData = async () => {
+  //   try {
+  //     setXiaowangTestLoading(true);
+  //     const response = await fetch('/api/xiaowang-test');
+  //     if (!response.ok) {
+  //       throw new Error(`Failed to load xiaowang test data: ${response.statusText}`);
+  //     }
+  //     const result = await response.json();
+  //     setXiaowangTestData(result.data);
+  //   } catch (error) {
+  //     console.error('Failed to load xiaowang test data:', error);
+  //     setXiaowangTestData(null);
+  //   } finally {
+  //     setXiaowangTestLoading(false);
+  //   }
+  // };
 
   // 页面加载时不自动获取数据，只有在用户上传数据后才显示图表
   // useEffect(() => {
@@ -755,10 +794,11 @@ export default function Home() {
       ];
     } else if (account === 'xiaowang-test') {
       return [
-        { id: 'broker', name: 'Overview Statistics', icon: '📊', desc: 'Campaign overview and summary' },
-        { id: 'cost', name: 'Conversion Analysis', icon: '💰', desc: 'Cost and conversion metrics' },
-        { id: 'time-analysis', name: 'Broker Clients', icon: '👥', desc: 'Client acquisition analysis' },
-        { id: 'weekly-analysis', name: 'Daily Trends', icon: '📈', desc: 'Daily performance trends' }
+        { id: 'broker', name: 'Broker Distribution', icon: '📊', desc: 'Broker performance analysis' },
+        { id: 'cost', name: 'Cost Analysis', icon: '💰', desc: 'Cost comparison analysis' },
+        { id: 'time-analysis', name: 'Time Analysis', icon: '⏰', desc: 'Acquisition time distribution' },
+        { id: 'weekly-analysis', name: 'Weekly Analysis', icon: '📈', desc: 'Weekly performance insights' },
+        { id: 'activity-heatmap', name: 'Activity Heatmap', icon: '🔥', desc: 'Broker activity patterns' }
       ];
     } else {
       return [
@@ -880,6 +920,73 @@ export default function Home() {
     if (lifeCarLoading || !filteredLifeCarData.length) return [];
     return aggregateByMonth(filteredLifeCarData);
   }, [filteredLifeCarData, lifeCarLoading]);
+
+  // 处理小王测试数据（受时间筛选器影响）
+  const filteredXiaowangTestData = useMemo(() => {
+    if (xiaowangTestLoading || !xiaowangTestData) return null;
+
+    // 如果没有选择日期范围，返回全部数据
+    if (!startDate || !endDate) return xiaowangTestData;
+
+    // 过滤日数据
+    const filteredDailyData = xiaowangTestData.dailyData?.filter((item: any) => {
+      const itemDate = item.date;
+      return itemDate >= startDate && itemDate <= endDate;
+    }) || [];
+
+    // 过滤原始数据
+    const filteredRawData = xiaowangTestData.rawData?.filter((item: any) => {
+      const itemDate = item.date;
+      return itemDate >= startDate && itemDate <= endDate;
+    }) || [];
+
+    // 重新计算汇总数据
+    const filteredSummary = {
+      totalCost: 0,
+      totalImpressions: 0,
+      totalClicks: 0,
+      totalInteractions: 0,
+      totalConversions: 0,
+      totalFollowers: 0,
+      totalSaves: 0,
+      totalLikes: 0,
+      totalComments: 0,
+      totalShares: 0,
+      avgClickRate: 0,
+      avgConversionCost: 0,
+    };
+
+    filteredRawData.forEach((item: any) => {
+      filteredSummary.totalCost += item.cost || 0;
+      filteredSummary.totalImpressions += item.impressions || 0;
+      filteredSummary.totalClicks += item.clicks || 0;
+      filteredSummary.totalInteractions += item.interactions || 0;
+      filteredSummary.totalConversions += item.conversions || 0;
+      filteredSummary.totalFollowers += item.followers || 0;
+      filteredSummary.totalSaves += item.saves || 0;
+      filteredSummary.totalLikes += item.likes || 0;
+      filteredSummary.totalComments += item.comments || 0;
+      filteredSummary.totalShares += item.shares || 0;
+    });
+
+    // 计算平均值
+    if (filteredRawData.length > 0) {
+      filteredSummary.avgClickRate = filteredSummary.totalImpressions > 0
+        ? (filteredSummary.totalClicks / filteredSummary.totalImpressions) * 100
+        : 0;
+      filteredSummary.avgConversionCost = filteredSummary.totalConversions > 0
+        ? filteredSummary.totalCost / filteredSummary.totalConversions
+        : 0;
+    }
+
+    return {
+      ...xiaowangTestData,
+      summary: filteredSummary,
+      dailyData: filteredDailyData,
+      rawData: filteredRawData,
+      totalRows: filteredRawData.length
+    };
+  }, [xiaowangTestData, startDate, endDate, xiaowangTestLoading]);
 
   // 如果正在加载，显示加载状态
   if (isLoading) {
@@ -1052,6 +1159,23 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <span className="font-medium">LifeCar</span>
+                </button>
+
+                {/* 小王测试数据上传按钮 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('XiaoWang Test button clicked');
+                    setShowXiaowangTestUpload(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200 rounded-md border border-transparent hover:border-gray-200"
+                  title="Upload XiaoWang Test Data"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="font-medium">小王测试</span>
                 </button>
               </div>
             </div>
@@ -1846,7 +1970,7 @@ export default function Home() {
               <>
                 {/* Overall Weekly Average - 独立模块 */}
                 <WeeklyOverallAverage weeklyData={weeklyDataJson} brokerData={brokerDataJson} />
-                
+
                 {/* Weekly Performance Details */}
                 <WeeklyAnalysis weeklyData={weeklyDataJson} brokerData={brokerDataJson} />
               </>
@@ -1880,20 +2004,136 @@ export default function Home() {
               </div>
             )}
 
+            {/* 时间筛选器 - 独立卡片设计 */}
+            {!xiaowangTestLoading && filteredXiaowangTestData && (
+              <div className="max-w-7xl mx-auto mb-6">
+                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
+                  {/* 主体标签 */}
+                  <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-200">
+                    <div className="p-2 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg">
+                      <CalendarIcon className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 font-montserrat">Time Filters</h3>
+                  </div>
+
+                  {/* 单行布局 */}
+                  <div className="flex flex-wrap items-end gap-3">
+                    {/* Start Date */}
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs font-bold text-gray-700 flex items-center gap-1 font-montserrat mb-1">
+                        <div className="w-1.5 h-1.5 bg-purple-600 rounded-full"></div>
+                        Start Date
+                      </label>
+                      <Input
+                        id="start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        min="2024-09-01"
+                        max="2025-12-31"
+                        className="w-full justify-start text-left font-normal bg-white border-gray-300 text-gray-800 focus:border-purple-500 focus:ring-purple-500/20 transition-all duration-200 hover:bg-gray-50 h-9 text-sm"
+                      />
+                    </div>
+
+                    {/* End Date */}
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs font-bold text-gray-700 flex items-center gap-1 font-montserrat mb-1">
+                        <div className="w-1.5 h-1.5 bg-pink-600 rounded-full"></div>
+                        End Date
+                      </label>
+                      <Input
+                        id="end-date"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        min="2024-09-01"
+                        max="2025-12-31"
+                        className="w-full justify-start text-left font-normal bg-white border-gray-300 text-gray-800 focus:border-pink-500 focus:ring-pink-500/20 transition-all duration-200 hover:bg-gray-50 h-9 text-sm"
+                      />
+                    </div>
+
+                    {/* Quick actions */}
+                    <Button
+                      onClick={handleLastWeek}
+                      variant="secondary"
+                      size="sm"
+                      className={`${
+                        isLastWeekSelected()
+                          ? 'bg-purple-400 text-white hover:bg-purple-500'
+                          : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                      } transition-all duration-200 font-semibold h-9 px-3`}
+                    >
+                      Last Week
+                    </Button>
+
+                    <Button
+                      onClick={handleClearFilter}
+                      variant="outline"
+                      size="sm"
+                      className="bg-white border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all duration-200 h-9 px-3"
+                    >
+                      Clear
+                    </Button>
+
+                    {/* Navigation buttons */}
+                    {startDate && endDate && (
+                      <>
+                        <Button
+                          onClick={handlePreviousPeriod}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 bg-white border-gray-300 text-gray-700 hover:bg-purple-50 hover:border-purple-400 hover:text-purple-700 transition-all duration-200 h-9 px-2"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Prev
+                        </Button>
+
+                        <div className="text-xs text-gray-500 font-medium flex items-center px-2 h-9">
+                          {(() => {
+                            const start = new Date(startDate);
+                            const end = new Date(endDate);
+                            const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                            return `${days} days`;
+                          })()}
+                        </div>
+
+                        <Button
+                          onClick={handleNextPeriod}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-1 bg-white border-gray-300 text-gray-700 hover:bg-purple-50 hover:border-purple-400 hover:text-purple-700 transition-all duration-200 h-9 px-2"
+                        >
+                          Next
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
+                  {startDate && endDate && (
+                    <div className="mt-4 text-sm text-purple-600 font-medium font-montserrat">
+                      Filtering data from {startDate} to {endDate}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 小王测试概览统计 */}
-            {!xiaowangTestLoading && xiaowangTestData && (
-              <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            {!xiaowangTestLoading && filteredXiaowangTestData && (
+              <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+                {/* 小王测试数据统计 */}
                 <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
                   <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
                     <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Total Cost</div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Ad Cost</div>
                   <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    ¥{xiaowangTestData.summary?.totalCost?.toFixed(0) || '0'}
+                    ${filteredXiaowangTestData.summary?.totalCost?.toFixed(0) || '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-600">Total advertising spend</div>
+                  <div className="text-xs font-semibold text-gray-600">Advertising spend</div>
                 </div>
 
                 <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
@@ -1903,11 +2143,11 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Total Impressions</div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Impressions</div>
                   <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    {xiaowangTestData.summary?.totalImpressions?.toLocaleString() || '0'}
+                    {filteredXiaowangTestData.summary?.totalImpressions?.toLocaleString() || '0'}
                   </div>
-                  <div className="text-xs font-semibold text-gray-600">Total views generated</div>
+                  <div className="text-xs font-semibold text-gray-600">Ad views</div>
                 </div>
 
                 <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
@@ -1916,30 +2156,48 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                   </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Total Conversions</div>
+                  <div className="text-sm font-bold text-gray-700 mb-2">Ad Conversions</div>
                   <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    {xiaowangTestData.summary?.totalConversions || '0'}
+                    {filteredXiaowangTestData.summary?.totalConversions || '0'}
                   </div>
                   <div className="text-xs font-semibold text-gray-600">WeChat & DM inquiries</div>
                 </div>
 
-                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Broker Clients</div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    {xiaowangTestData.summary?.totalBrokerClients || '0'}
-                  </div>
-                  <div className="text-xs font-semibold text-gray-600">Total broker clients</div>
-                </div>
+                {/* 小王咨询数据统计（如果存在） */}
+                {brokerDataJson.length > 0 && (
+                  <>
+                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-blue-200/50 p-6 glass-card-hover relative text-center">
+                      <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <div className="text-sm font-bold text-gray-700 mb-2">Total Clients</div>
+                      <div className="text-4xl font-black bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+                        {totalClients}
+                      </div>
+                      <div className="text-xs font-semibold text-gray-600">Consultation clients</div>
+                    </div>
+
+                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-blue-200/50 p-6 glass-card-hover relative text-center">
+                      <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="text-sm font-bold text-gray-700 mb-2">Active Brokers</div>
+                      <div className="text-4xl font-black bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+                        {activeBrokers}
+                      </div>
+                      <div className="text-xs font-semibold text-gray-600">Active consultant brokers</div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {/* 小王测试模块导航 */}
-            {!xiaowangTestLoading && xiaowangTestData && (
+            {!xiaowangTestLoading && filteredXiaowangTestData && (
               <div className="max-w-7xl mx-auto mb-6">
                 <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-1">
                   <div className="flex">
@@ -1985,45 +2243,186 @@ export default function Home() {
             )}
 
             {/* 小王测试动态内容区域 */}
-            {!xiaowangTestLoading && xiaowangTestData && (
+            {!xiaowangTestLoading && filteredXiaowangTestData && (
               <>
                 {activeModule === 'broker' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">📊 Broker Distribution Analysis</h2>
+
+                    {/* 小王咨询数据图表（如果存在） */}
+                    {brokerDataJson.length > 0 && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Broker分布饼图 */}
+                          <div className="glass-card rounded-lg overflow-hidden">
+                            <PieChartWithFilter startDate={startDate} endDate={endDate} brokerData={brokerDataJson} />
+                          </div>
+
+                          {/* 双环饼图 */}
+                          {weeklyDataJson.length > 0 && (
+                            <div className="glass-card rounded-lg overflow-hidden">
+                              <BrokerWeeklyDonutChart startDate={startDate} endDate={endDate} brokerData={brokerDataJson} weeklyData={weeklyDataJson} leftChartLegendData={processedBrokerData} />
+                            </div>
+                          )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Cost Analysis Module */}
+                {activeModule === 'cost' && (
+                  <div className="max-w-7xl mx-auto mb-4 space-y-6">
                     <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
                       <div className="w-4 h-4 bg-[#751FAE]"></div>
-                      小王测试 Campaign Overview
+                      Day of Week Analysis
                     </h2>
-                    
-                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-8">
-                      <div className="text-center">
-                        <div className="text-6xl mb-6">🧪</div>
-                        <h3 className="text-xl font-semibold text-gray-700 mb-4">Campaign Overview</h3>
-                        <p className="text-gray-500 mb-4">Data successfully loaded from advertising and broker sources.</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div className="text-center">
-                            <div className="font-bold text-purple-600">{xiaowangTestData.adData?.length || 0}</div>
-                            <div className="text-gray-500">Ad Records</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-purple-600">{xiaowangTestData.brokerData?.length || 0}</div>
-                            <div className="text-gray-500">Broker Records</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-purple-600">{xiaowangTestData.summary?.avgClickRate?.toFixed(1) || '0.0'}%</div>
-                            <div className="text-gray-500">Avg Click Rate</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-purple-600">¥{xiaowangTestData.summary?.avgConversionCost?.toFixed(1) || '0.0'}</div>
-                            <div className="text-gray-500">Avg Conversion Cost</div>
-                          </div>
+
+                    <XiaowangTestCostAnalysis
+                      xiaowangTestData={xiaowangTestData}
+                      brokerData={brokerDataJson}
+                      startDate={startDate}
+                      endDate={endDate}
+                      selectedMetric={xiaowangSelectedMetric}
+                      onMetricChange={setXiaowangSelectedMetric}
+                    />
+
+                    <div className="mt-8">
+                      <XiaowangTestCostPerMetric
+                        xiaowangTestData={xiaowangTestData}
+                        brokerData={brokerDataJson}
+                        startDate={startDate}
+                        endDate={endDate}
+                        selectedMetric={xiaowangSelectedMetric}
+                        onMetricChange={setXiaowangSelectedMetric}
+                      />
+                    </div>
+
+                    <div className="mt-12">
+                      <div className="flex items-center justify-between mb-3">
+                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                          <div className="w-4 h-4 bg-[#751FAE]"></div>
+                          Weekly Performance
+                        </h2>
+                        <div className="flex gap-2">
+                          <Button
+                            variant={weeklyTimePeriod === '3months' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setWeeklyTimePeriod('3months')}
+                            className={`text-xs font-medium transition-all duration-200 ${
+                              weeklyTimePeriod === '3months'
+                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
+                            }`}
+                          >
+                            Latest 3 months
+                          </Button>
+                          <Button
+                            variant={weeklyTimePeriod === '6months' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setWeeklyTimePeriod('6months')}
+                            className={`text-xs font-medium transition-all duration-200 ${
+                              weeklyTimePeriod === '6months'
+                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
+                            }`}
+                          >
+                            6 months
+                          </Button>
+                          <Button
+                            variant={weeklyTimePeriod === '1year' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setWeeklyTimePeriod('1year')}
+                            className={`text-xs font-medium transition-all duration-200 ${
+                              weeklyTimePeriod === '1year'
+                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
+                            }`}
+                          >
+                            1 year
+                          </Button>
                         </div>
+                      </div>
+
+                      <XiaowangTestWeeklyCostAnalysis
+                        xiaowangTestData={xiaowangTestData}
+                        brokerData={brokerDataJson}
+                        selectedMetric={xiaowangSelectedMetric}
+                        onMetricChange={setXiaowangSelectedMetric}
+                      />
+
+                      <div className="mt-8">
+                        <XiaowangTestWeeklyCostPerMetric
+                          xiaowangTestData={xiaowangTestData}
+                          brokerData={brokerDataJson}
+                          selectedMetric={xiaowangSelectedMetric}
+                          onMetricChange={setXiaowangSelectedMetric}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-12">
+                      <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                        <div className="w-4 h-4 bg-[#751FAE]"></div>
+                        Monthly Analysis
+                      </h2>
+
+                      <XiaowangTestMonthlyCostAnalysis
+                        xiaowangTestData={xiaowangTestData}
+                        brokerData={brokerDataJson}
+                        selectedMetric={xiaowangSelectedMetric}
+                        onMetricChange={setXiaowangSelectedMetric}
+                      />
+
+                      <div className="mt-8">
+                        <XiaowangTestMonthlyCostPerMetric
+                          xiaowangTestData={xiaowangTestData}
+                          brokerData={brokerDataJson}
+                          selectedMetric={xiaowangSelectedMetric}
+                          onMetricChange={setXiaowangSelectedMetric}
+                        />
                       </div>
                     </div>
                   </div>
                 )}
 
+                {/* Weekly Analysis Module */}
+                {activeModule === 'weekly-analysis' && (
+                  <div className="max-w-7xl mx-auto mb-4 space-y-6">
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">📈 Weekly Analysis</h2>
+
+                    {/* 检查是否有数据 - 只需要小王测试数据和咨询数据 */}
+                    {xiaowangTestData && brokerDataJson.length > 0 ? (
+                      <>
+                        {/* Weekly Performance Details */}
+                        <div className="space-y-6">
+                          {/* Overall Weekly Average */}
+                          <XiaowangTestWeeklyOverallAverage
+                            weeklyData={xiaowangTestData?.dailyData || []}
+                            brokerData={brokerDataJson}
+                          />
+
+                          {/* Weekly Performance Details */}
+                          <XiaowangTestWeeklyAnalysisAdapted
+                            weeklyData={xiaowangTestData?.dailyData || []}
+                            brokerData={brokerDataJson}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12">
+                        <div className="text-6xl mb-6">📈</div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
+                        <p className="text-gray-500 mb-4">Please upload both test data and consultation data to view weekly analysis.</p>
+                        <div className="text-sm text-gray-400 space-y-1">
+                          <p>1. Upload 小王测试 data (CSV format)</p>
+                          <p>2. Upload 小王咨询 data with "new client info" sheet</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Placeholder for other modules */}
-                {activeModule !== 'broker' && (
+                {activeModule !== 'broker' && activeModule !== 'cost' && activeModule !== 'weekly-analysis' && (
                   <div className="max-w-7xl mx-auto mb-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12 text-center">
                       <div className="text-6xl mb-6">🚧</div>
@@ -2035,18 +2434,18 @@ export default function Home() {
               </>
             )}
 
-            {/* 无数据状态 */}
-            {!xiaowangTestLoading && !xiaowangTestData && (
+            {/* 无数据状态 - 提示用户上传数据 */}
+            {!xiaowangTestLoading && !filteredXiaowangTestData && (
               <div className="max-w-7xl mx-auto flex items-center justify-center py-12">
                 <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12">
-                  <div className="text-6xl mb-6">🧪</div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
-                  <p className="text-gray-500 mb-4">小王测试 data could not be loaded. Please check if the data files exist.</p>
+                  <div className="text-6xl mb-6">📤</div>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-4">No Test Data Uploaded</h3>
+                  <p className="text-gray-500 mb-4">请点击顶部的"小王测试"按钮上传CSV数据文件以开始分析。</p>
                   <button
-                    onClick={loadXiaowangTestData}
+                    onClick={() => setShowXiaowangTestUpload(true)}
                     className="bg-gradient-to-r from-[#751FAE] to-[#EF3C99] text-white px-6 py-2 rounded-lg hover:from-[#6919A6] hover:to-[#E73691] transition-all duration-200"
                   >
-                    Retry Loading Data
+                    Upload Test Data
                   </button>
                 </div>
               </div>
@@ -2071,7 +2470,7 @@ export default function Home() {
                 ✕
               </Button>
             </div>
-            <ExcelUpload 
+            <ExcelUpload
               onUploadSuccess={(data) => {
                 // 根据上传类型切换账号
                 if (uploadAccountType === 'lifecar') {
@@ -2095,7 +2494,7 @@ export default function Home() {
                   setSelectedAccount('xiaowang');
                   handleUploadSuccess(data);
                 }
-              }} 
+              }}
               accountType={uploadAccountType}
             />
           </div>
@@ -2103,8 +2502,8 @@ export default function Home() {
       )}
       
       {/* LifeCar Notes Modal */}
-      <LifeCarNotesModal 
-        isOpen={showNotesModal} 
+      <LifeCarNotesModal
+        isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
         onDateSelect={(date) => {
           setSelectedNoteDates(prev => {
@@ -2120,7 +2519,44 @@ export default function Home() {
         }}
         selectedDates={selectedNoteDates}
       />
-      
+
+      {/* 小王测试数据上传模态框 */}
+      {showXiaowangTestUpload && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]">
+          <div className="bg-white/90 backdrop-blur-xl rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-purple-500/20 border border-purple-200/50">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">上传小王测试数据</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowXiaowangTestUpload(false)}
+                className="text-purple-500 hover:text-purple-700 hover:bg-purple-50"
+              >
+                ✕
+              </Button>
+            </div>
+            <XiaowangUpload
+              onUploadSuccess={(data) => {
+                // 处理小王测试数据
+                if (data) {
+                  // 设置小王测试数据
+                  setXiaowangTestData(data);
+
+                  // 同时使用当前的小王咨询数据（如果存在）
+                  // 这样小王测试页面就能同时显示两种数据
+                  if (brokerDataJson.length > 0 || weeklyDataJson.length > 0 || monthlyDataJson.length > 0) {
+                    console.log('Using existing 小王咨询 data with 小王测试 data');
+                  }
+
+                  setSelectedAccount('xiaowang-test');
+                  setShowXiaowangTestUpload(false);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

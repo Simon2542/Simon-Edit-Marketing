@@ -1,18 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { NextResponse } from 'next/server'
+import { getNotesStore } from '../notes-store'
 
 export async function DELETE() {
   try {
-    const dataPath = path.join(process.cwd(), 'public', 'lifecar-notes-data.json')
-    
-    // Check if file exists and delete it
-    if (fs.existsSync(dataPath)) {
-      fs.unlinkSync(dataPath)
-    }
+    const store = getNotesStore()
 
-    return NextResponse.json({ 
-      success: true, 
+    // Clear data from memory store
+    store.clearData()
+
+    return NextResponse.json({
+      success: true,
       message: '数据已清除'
     })
     

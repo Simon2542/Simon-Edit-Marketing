@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import path from 'path'
 import fs from 'fs'
+import { getNotesStore } from './notes-store'
 
 export async function GET() {
   try {
-    // First check for uploaded data
-    const uploadedDataPath = path.join(process.cwd(), 'public', 'lifecar-notes-data.json')
-    
-    if (fs.existsSync(uploadedDataPath)) {
+    // First check for uploaded data in memory
+    const store = getNotesStore()
+    const uploadedData = store.getData()
+
+    if (uploadedData) {
       // Use uploaded data if it exists
-      const uploadedData = JSON.parse(fs.readFileSync(uploadedDataPath, 'utf-8'))
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         data: uploadedData,
         total: uploadedData.length,
         source: 'uploaded'
