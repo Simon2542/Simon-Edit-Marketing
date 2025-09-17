@@ -16,9 +16,11 @@ interface LifeCarNotesModalProps {
   onClose: () => void
   onDateSelect?: (date: string) => void
   selectedDates?: string[]
+  onDataUpdate?: (data: LifeCarNote[]) => void
+  initialData?: LifeCarNote[] // 父组件传递的已有数据
 }
 
-export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates = [] }: LifeCarNotesModalProps) {
+export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates = [], onDataUpdate, initialData = [] }: LifeCarNotesModalProps) {
   const [notes, setNotes] = useState<LifeCarNote[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,9 +30,17 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotes()
+      // 优先使用父组件传递的数据
+      if (initialData && initialData.length > 0) {
+        setNotes(initialData)
+        setDataSource('uploaded')
+        setError(null)
+      } else {
+        // 如果没有初始数据，才调用API
+        fetchNotes()
+      }
     }
-  }, [isOpen])
+  }, [isOpen, initialData])
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -91,6 +101,10 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       if (result.success) {
         setNotes(result.data)
         setDataSource('uploaded')
+        // Notify parent component of data update
+        if (onDataUpdate) {
+          onDataUpdate(result.data)
+        }
         // Clear file input
         if (fileInputRef.current) {
           fileInputRef.current.value = ''

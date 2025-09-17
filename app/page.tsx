@@ -457,6 +457,7 @@ export default function Home() {
   // LifeCar 笔记浮窗状态
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedNoteDates, setSelectedNoteDates] = useState<string[]>([]);
+  const [lifeCarNotesData, setLifeCarNotesData] = useState<any[]>([]);
 
   // 检查是否选择了一周时间范围
   const isOneWeekSelected = useMemo(() => {
@@ -471,150 +472,121 @@ export default function Home() {
   // Notes数据中在当前时间范围内的日期
   const [notesInDateRange, setNotesInDateRange] = useState<string[]>([]);
 
+  // 加载LifeCar Notes数据
+  const fetchNotesData = async () => {
+    try {
+      console.log('Fetching notes data...');
+      const response = await fetch('/api/lifecar-notes');
+      const result = await response.json();
+      if (result.success) {
+        console.log('Loaded notes data:', result.data.length, 'notes');
+        setLifeCarNotesData(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notes data:', error);
+    }
+  };
+
+  // 页面初始加载时不自动获取Notes数据，要求用户上传
+
+  // 当Notes Modal关闭时保持数据（只在浏览器会话期间保留）
+  const handleNotesModalClose = () => {
+    setShowNotesModal(false);
+    // 不清空数据，保持在浏览器会话期间可用
+  };
+
+  // 计算Notes按星期几的统计（基于前端数据）
+  const calculateNotesWeekdayCount = (notesData: any[]) => {
+    if (!lifeCarData.length || !notesData.length) {
+      setNotesWeekdayCount({});
+      return;
+    }
+
+    const weekdayCount: {[key: string]: number} = {
+      'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+    };
+
+    // 获取投放数据的日期范围
+    const campaignDates = lifeCarData.map(d => d.date);
+    const minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
+    const maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
+
+    notesData.forEach((note: any) => {
+      const dateStr = note.发布时间?.split(' ')[0];
+      if (dateStr) {
+        const noteTime = new Date(dateStr).getTime();
+        if (noteTime >= minDate && noteTime <= maxDate) {
+          const date = new Date(dateStr);
+          const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+          weekdayCount[dayOfWeek] = (weekdayCount[dayOfWeek] || 0) + 1;
+        }
+      }
+    });
+
+    setNotesWeekdayCount(weekdayCount);
+  };
+
+  // 计算Notes按月份的统计（基于前端数据）
+  const calculateNotesMonthlyCount = (notesData: any[]) => {
+    if (!lifeCarData.length || !notesData.length) {
+      setNotesMonthlyCount({});
+      return;
+    }
+
+    const monthlyCount: {[key: string]: number} = {};
+
+    // 获取投放数据的日期范围
+    const campaignDates = lifeCarData.map(d => d.date);
+    const minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
+    const maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
+
+    notesData.forEach((note: any) => {
+      const dateStr = note.发布时间?.split(' ')[0];
+      if (dateStr) {
+        const noteTime = new Date(dateStr).getTime();
+        if (noteTime >= minDate && noteTime <= maxDate) {
+          const date = new Date(dateStr);
+          const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+          monthlyCount[monthKey] = (monthlyCount[monthKey] || 0) + 1;
+        }
+      }
+    });
+
+    setNotesMonthlyCount(monthlyCount);
+  };
+
   // Notes按星期几的统计
   const [notesWeekdayCount, setNotesWeekdayCount] = useState<{[key: string]: number}>({});
+
+  // 当Notes数据或投放数据更新时，重新计算统计
+  useEffect(() => {
+    if (lifeCarNotesData.length > 0 && lifeCarData.length > 0) {
+      calculateNotesWeekdayCount(lifeCarNotesData);
+      calculateNotesMonthlyCount(lifeCarNotesData);
+    } else {
+      setNotesWeekdayCount({});
+      setNotesMonthlyCount({});
+    }
+  }, [lifeCarNotesData, lifeCarData]);
 
   // Notes按月份的统计
   const [notesMonthlyCount, setNotesMonthlyCount] = useState<{[key: string]: number}>({});
 
-  // 获取Notes数据中在时间范围内的日期
+  // 获取Notes数据中在时间范围内的日期（基于前端数据）
   useEffect(() => {
-    const fetchNotesInRange = async () => {
-      if (!isOneWeekSelected || !startDate || !endDate) {
-        setNotesInDateRange([]);
-        return;
-      }
+    if (!isOneWeekSelected || !startDate || !endDate || !lifeCarNotesData.length) {
+      setNotesInDateRange([]);
+      return;
+    }
 
-      try {
-        const response = await fetch('/api/lifecar-notes');
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            const notesData = result.data;
-            const datesInRange = notesData
-              .map((note: any) => note.发布时间?.split(' ')[0]) // Extract date part
-              .filter((date: string) => date && date >= startDate && date <= endDate)
-              .filter((date: string, index: number, array: string[]) => array.indexOf(date) === index); // Remove duplicates
-            
-            setNotesInDateRange(datesInRange);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch notes for date range:', error);
-        setNotesInDateRange([]);
-      }
-    };
+    const datesInRange = lifeCarNotesData
+      .map((note: any) => note.发布时间?.split(' ')[0]) // Extract date part
+      .filter((date: string) => date && date >= startDate && date <= endDate)
+      .filter((date: string, index: number, array: string[]) => array.indexOf(date) === index); // Remove duplicates
 
-    fetchNotesInRange();
-  }, [isOneWeekSelected, startDate, endDate]);
+    setNotesInDateRange(datesInRange);
+  }, [isOneWeekSelected, startDate, endDate, lifeCarNotesData]);
 
-  // 获取Notes数据并计算在投放数据时间范围内的星期几统计
-  useEffect(() => {
-    const fetchNotesWeekdayCount = async () => {
-      if (!lifeCarData.length) {
-        setNotesWeekdayCount({});
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/lifecar-notes');
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            const notesData = result.data;
-            const weekdayCount: {[key: string]: number} = {
-              'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
-            };
-            
-            // 确定时间范围：考虑全局筛选器和图表级别的"All data"状态
-            let minDate: number, maxDate: number;
-            
-            // 如果图表使用"All data"模式，或者没有全局筛选器，则使用完整时间范围
-            if (!lifecarChartFiltered || (!startDate || !endDate)) {
-              // 使用投放数据的完整时间范围
-              const campaignDates = lifeCarData.map(item => item.date);
-              minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
-              maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
-            } else {
-              // 使用筛选器指定的范围
-              minDate = new Date(startDate).getTime();
-              maxDate = new Date(endDate).getTime();
-            }
-            
-            notesData.forEach((note: any) => {
-              const dateStr = note.发布时间?.split(' ')[0];
-              if (dateStr) {
-                const noteTime = new Date(dateStr).getTime();
-                // 只统计在确定时间范围内的Notes
-                if (noteTime >= minDate && noteTime <= maxDate) {
-                  const date = new Date(dateStr);
-                  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-                  if (weekdayCount[weekday] !== undefined) {
-                    weekdayCount[weekday]++;
-                  }
-                }
-              }
-            });
-            
-            setNotesWeekdayCount(weekdayCount);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch notes for weekday count:', error);
-        setNotesWeekdayCount({});
-      }
-    };
-
-    fetchNotesWeekdayCount();
-  }, [isOneWeekSelected, lifeCarData, startDate, endDate, lifecarChartFiltered]);
-
-  // 获取Notes数据并计算在投放数据时间范围内的月份统计
-  useEffect(() => {
-    const fetchNotesMonthlyCount = async () => {
-      if (!lifeCarData.length) {
-        setNotesMonthlyCount({});
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/lifecar-notes');
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            const notesData = result.data;
-            const monthlyCount: {[key: string]: number} = {};
-            
-            // 使用投放数据的完整时间范围 (Monthly Analysis always uses all data)
-            const campaignDates = lifeCarData.map(item => item.date);
-            const minDate = Math.min(...campaignDates.map(d => new Date(d).getTime()));
-            const maxDate = Math.max(...campaignDates.map(d => new Date(d).getTime()));
-            
-            notesData.forEach((note: any) => {
-              const dateStr = note.发布时间?.split(' ')[0];
-              if (dateStr) {
-                const noteTime = new Date(dateStr).getTime();
-                // 只统计在投放时间范围内的Notes
-                if (noteTime >= minDate && noteTime <= maxDate) {
-                  const month = dateStr.substring(0, 7); // YYYY-MM format
-                  if (!monthlyCount[month]) {
-                    monthlyCount[month] = 0;
-                  }
-                  monthlyCount[month]++;
-                }
-              }
-            });
-            
-            setNotesMonthlyCount(monthlyCount);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch notes for monthly count:', error);
-        setNotesMonthlyCount({});
-      }
-    };
-
-    fetchNotesMonthlyCount();
-  }, [lifeCarData]);
 
   // 加载数据函数
   const loadData = async () => {
@@ -1439,12 +1411,13 @@ export default function Home() {
                       Trend Overview
                     </h2>
                     
-                    <LifeCarMonthlySummary 
-                      data={lifeCarMonthlyData} 
+                    <LifeCarMonthlySummary
+                      data={lifeCarMonthlyData}
                       dailyData={lifeCarData}
                       unfilteredDailyData={lifeCarData}
                       title="Monthly Cost Analysis"
                       selectedDates={selectedNoteDates}
+                      notesData={lifeCarNotesData}
                     />
                   </div>
                 )}
@@ -1458,8 +1431,8 @@ export default function Home() {
                     
                     {/* Daily Views & Cost Chart - affected by time filter */}
                     {filteredLifeCarData && filteredLifeCarData.length > 0 && (
-                      <ViewsCostDailyChart 
-                        data={filteredLifeCarData} 
+                      <ViewsCostDailyChart
+                        data={filteredLifeCarData}
                         title="Daily Views & Cost Trend"
                         startDate={startDate}
                         endDate={endDate}
@@ -1470,13 +1443,14 @@ export default function Home() {
                         onFilterChange={setLifecarChartFiltered}
                         selectedDates={notesInDateRange}
                         notesWeekdayCount={notesWeekdayCount}
+                        notesData={lifeCarNotesData}
                       />
                     )}
                     
                     {/* Daily Cost Per Follower Chart - affected by time filter */}
                     {filteredLifeCarData && filteredLifeCarData.length > 0 && (
-                      <CostPerFollowerDailyChart 
-                        data={filteredLifeCarData} 
+                      <CostPerFollowerDailyChart
+                        data={filteredLifeCarData}
                         title="Daily Cost Per Follower Trend"
                         startDate={startDate}
                         endDate={endDate}
@@ -1487,6 +1461,7 @@ export default function Home() {
                         onFilterChange={setLifecarChartFiltered}
                         selectedDates={notesInDateRange}
                         notesWeekdayCount={notesWeekdayCount}
+                        notesData={lifeCarNotesData}
                       />
                     )}
                     
@@ -2504,7 +2479,9 @@ export default function Home() {
       {/* LifeCar Notes Modal */}
       <LifeCarNotesModal
         isOpen={showNotesModal}
-        onClose={() => setShowNotesModal(false)}
+        onClose={handleNotesModalClose}
+        onDataUpdate={(data) => setLifeCarNotesData(data)}
+        initialData={lifeCarNotesData}
         onDateSelect={(date) => {
           setSelectedNoteDates(prev => {
             const chartDate = date.split(' ')[0]; // Extract date part

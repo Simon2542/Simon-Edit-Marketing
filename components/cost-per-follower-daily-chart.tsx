@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
 
+interface LifeCarNote {
+  发布时间: string
+  类型: string
+  名称: string
+  链接: string
+}
+
 interface CostPerFollowerDailyChartProps {
   data: LifeCarDailyData[]
   title?: string
@@ -18,6 +25,7 @@ interface CostPerFollowerDailyChartProps {
   onFilterChange?: (filtered: boolean) => void // Shared filter change handler
   selectedDates?: string[] // Selected dates for vertical lines
   notesWeekdayCount?: {[key: string]: number} // Notes count by weekday
+  notesData?: LifeCarNote[] // Notes data for tooltip display
 }
 
 interface DailyData {
@@ -190,19 +198,44 @@ const CostMetricLabel = (props: any) => {
   )
 }
 
-export function CostPerFollowerDailyChart({ 
-  data, 
-  title = "Daily Cost Analysis", 
-  startDate, 
-  endDate, 
+export function CostPerFollowerDailyChart({
+  data,
+  title = "Daily Cost Analysis",
+  startDate,
+  endDate,
   allData,
   selectedMetric: propSelectedMetric,
   onMetricChange,
   isFiltered: propIsFiltered,
   onFilterChange,
   selectedDates = [],
-  notesWeekdayCount = {}
+  notesWeekdayCount = {},
+  notesData = []
 }: CostPerFollowerDailyChartProps) {
+  // Get posts for a specific date (only if the date is selected)
+  const getPostsForDate = (dateStr: string): LifeCarNote[] => {
+    if (!notesData || notesData.length === 0) {
+      return []
+    }
+
+    // Extract date part from dateStr (YYYY-MM-DD format)
+    const targetDate = dateStr.split(' ')[0]
+
+    // Check if this date is selected in the Posts modal
+    const isDateSelected = selectedDates.includes(targetDate)
+
+    if (!isDateSelected) {
+      return []
+    }
+
+    // Find all posts for this date
+    return notesData.filter(note => {
+      if (!note.发布时间) return false
+      const noteDate = note.发布时间.split(' ')[0] // Extract date part
+      return noteDate === targetDate
+    })
+  }
+
   // Use shared state from props, fallback to default values
   const isFiltered = propIsFiltered ?? true
   const setIsFiltered = onFilterChange ?? (() => {})
@@ -353,30 +386,50 @@ export function CostPerFollowerDailyChart({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const dataPoint = chartData.find(d => d.date === label)
-      
+
       if (dataPoint) {
         let formattedDate: string
-        
+
         if (isSevenDayRange && isFiltered) {
           // For 7-day range with filter, show full date
-          formattedDate = new Date(label).toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
+          formattedDate = new Date(label).toLocaleDateString('en-US', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
           })
         } else {
           // For weekday grouping, show weekday and indicate it's an average
           formattedDate = `${label} (Average)`
         }
-        
+
+        // Get posts for this date
+        const postsForDate = getPostsForDate(label)
+
         const metricInfo = getMetricInfo(selectedMetric)
         const value = dataPoint[selectedMetric]
-        
+
         return (
-          <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[200px]">
+          <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[240px] max-w-[400px]">
             <p className="font-bold text-gray-900 mb-3 border-b pb-2">{formattedDate}</p>
-            
+
+            {/* Posts Section - Show only if there are posts for this date */}
+            {postsForDate.length > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold mb-2 text-purple-700">
+                  📝 Posts ({postsForDate.length})
+                </p>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {postsForDate.map((post, index) => (
+                    <div key={index} className="text-xs p-2 bg-purple-50 rounded border-l-2 border-purple-300">
+                      <div className="font-medium text-purple-800 line-clamp-2">{post.名称}</div>
+                      <div className="text-purple-600 text-xs mt-1">{post.类型}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Selected Metric Section */}
             <div>
               <p className="text-sm font-semibold mb-1" style={{ color: metricInfo.color }}>

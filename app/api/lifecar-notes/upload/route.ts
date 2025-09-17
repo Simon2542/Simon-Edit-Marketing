@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
     // Store in memory instead of file system
     const store = getNotesStore()
     store.setData(processedData)
+    console.log('Stored data in memory:', processedData.length, 'notes')
 
     return NextResponse.json({
       success: true,

@@ -6,10 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
 
+interface LifeCarNote {
+  发布时间: string
+  类型: string
+  名称: string
+  链接: string
+}
+
 interface DualAxisRollingAverageChartProps {
   data: LifeCarDailyData[]
   title?: string
   selectedDates?: string[]
+  notesData?: LifeCarNote[]
 }
 
 interface RollingAverageData {
@@ -104,7 +112,7 @@ function calculateNiceScale(minValue: number, maxValue: number, targetTicks: num
   }
 }
 
-export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Average Analysis: Cost & Metrics", selectedDates = [] }: DualAxisRollingAverageChartProps) {
+export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Average Analysis: Cost & Metrics", selectedDates = [], notesData = [] }: DualAxisRollingAverageChartProps) {
   // State for metric selection
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('clicks')
   
@@ -192,24 +200,75 @@ export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Avera
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  // Get posts for a specific date (only if the date is selected)
+  const getPostsForDate = (dateStr: string): LifeCarNote[] => {
+    if (!notesData || notesData.length === 0) {
+      console.log('No notes data available:', notesData)
+      return []
+    }
+
+    // Extract date part from dateStr (YYYY-MM-DD format)
+    const targetDate = dateStr.split(' ')[0]
+
+    // Check if this date is selected in the Posts modal
+    const isDateSelected = selectedDates.includes(targetDate)
+    console.log('Looking for posts on date:', targetDate, 'Selected:', isDateSelected)
+    console.log('Selected dates:', selectedDates)
+
+    if (!isDateSelected) {
+      console.log('Date not selected, returning empty posts')
+      return []
+    }
+
+    const matchingPosts = notesData.filter(note => {
+      const noteDate = note.发布时间.split(' ')[0] // Extract date part from "2025-09-11 12:59:29"
+      return noteDate === targetDate
+    })
+
+    console.log(`Found ${matchingPosts.length} posts for selected date ${targetDate}`)
+    return matchingPosts
+  }
+
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       // Find the data point for this date
       const dataPoint = chartData.find(d => d.date === label)
-      
+
+      // Get posts for this date
+      const postsForDate = getPostsForDate(label)
+
       // Format date nicely
-      const formattedDate = new Date(label).toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
+      const formattedDate = new Date(label).toLocaleDateString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
       })
-      
+
       return (
-        <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[220px]">
+        <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[240px] max-w-[400px]">
           <p className="font-bold text-gray-900 mb-3 border-b pb-2">{formattedDate}</p>
-          
+
+          {/* Posts Section - Show only if there are posts for this date */}
+          {postsForDate.length > 0 && (
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-purple-600 mb-2">📝 Posts ({postsForDate.length})</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {postsForDate.map((post, index) => (
+                  <div key={index} className="text-xs bg-purple-50 rounded p-2">
+                    <p className="font-medium text-purple-800 truncate" title={post.名称}>
+                      {post.名称}
+                    </p>
+                    <p className="text-purple-600 text-xs">
+                      {post.类型} • {post.发布时间.split(' ')[1]?.substring(0, 5) || ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Cost Section */}
           <div className="mb-3">
             <p className="text-sm font-semibold text-pink-600 mb-1">💰 Cost</p>
@@ -217,7 +276,7 @@ export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Avera
               <span className="font-medium">7-day Avg:</span> ${dataPoint.spendAvg.toFixed(2)}
             </p>
           </div>
-          
+
           {/* Selected Metric Section */}
           <div>
             <p className="text-sm font-semibold mb-1" style={{ color: metricConfig.color }}>
