@@ -13,6 +13,8 @@ interface XiaowangTestCostAnalysisProps {
   endDate?: string
   selectedMetric?: MetricType
   onMetricChange?: (metric: MetricType) => void
+  isFiltered?: boolean
+  onFilterChange?: (filtered: boolean) => void
 }
 
 interface DailyData {
@@ -29,7 +31,14 @@ type MetricType = 'views' | 'likes' | 'followers' | 'leads'
 
 // Process Xiaowang test data combined with consultation leads data
 function processXiaowangTestData(xiaowangTestData: any, brokerData: any[]): DailyData[] {
+  console.log('XiaowangTestCostAnalysis - 接收到的数据:', {
+    xiaowangTestData,
+    dailyData: xiaowangTestData?.dailyData,
+    brokerDataLength: brokerData?.length || 0
+  });
+
   if (!xiaowangTestData?.dailyData || !Array.isArray(xiaowangTestData.dailyData)) {
+    console.log('XiaowangTestCostAnalysis - 没有找到dailyData，返回空数组');
     return []
   }
 
@@ -193,13 +202,24 @@ function processWeekdayData(data: DailyData[]): DailyData[] {
     return {
       date: weekday,
       weekday: weekday,
-      views: Math.round(avgViews),
-      likes: Math.round(avgLikes),
-      followers: Math.round(avgFollowers),
-      leads: Math.round(avgLeads),
+      views: Math.round(avgViews * 100) / 100, // Round to 2 decimal places
+      likes: Math.round(avgLikes * 100) / 100, // Round to 2 decimal places
+      followers: Math.round(avgFollowers * 100) / 100, // Round to 2 decimal places
+      leads: Math.round(avgLeads * 100) / 100, // Round to 2 decimal places
       cost: Math.round(avgCost * 100) / 100 // Round to 2 decimal places
     }
   }).filter(item => item.views > 0 || item.likes > 0 || item.followers > 0 || item.leads > 0 || item.cost > 0)
+}
+
+// Smart number formatting - shows decimals only when needed
+function formatSmartDecimal(value: number): string {
+  if (value % 1 === 0) {
+    // It's a whole number, don't show decimals
+    return value.toFixed(0)
+  } else {
+    // It has decimals, show up to 2 decimal places
+    return value.toFixed(2)
+  }
 }
 
 // Calculate nice axis domain and ticks for dynamic scaling
@@ -249,7 +269,7 @@ const IntelligentLabel = (props: any) => {
     // Fallback to simple positioning if we don't have the necessary data
     const displayValue = dataKey === 'cost'
       ? `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
-      : (value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(1))
+      : (value >= 1000 ? `${formatSmartDecimal(value/1000)}K` : formatSmartDecimal(value))
     const width = dataKey === 'cost' ? 36 : 30
     const height = 14
     const labelY = dataKey === 'cost' ? y + 8 : y - height - 8
@@ -318,7 +338,7 @@ const IntelligentLabel = (props: any) => {
 
   const displayValue = dataKey === 'cost'
     ? `$${value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(0)}`
-    : (value >= 1000 ? `${(value/1000).toFixed(1)}K` : value.toFixed(1))
+    : (value >= 1000 ? `${formatSmartDecimal(value/1000)}K` : formatSmartDecimal(value))
   const width = dataKey === 'cost' ? 36 : 30
   const height = 14
   const labelColor = dataKey === 'cost' ? '#751FAE' : (metricConfig?.color || '#3CBDE5')
@@ -357,10 +377,12 @@ export function XiaowangTestCostAnalysis({
   startDate,
   endDate,
   selectedMetric: propSelectedMetric,
-  onMetricChange
+  onMetricChange,
+  isFiltered: propIsFiltered,
+  onFilterChange
 }: XiaowangTestCostAnalysisProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(propSelectedMetric || 'views')
-  const [isFiltered, setIsFiltered] = useState(true)
+  const isFiltered = propIsFiltered !== undefined ? propIsFiltered : true
 
   // Sync with prop changes
   useEffect(() => {
@@ -512,13 +534,177 @@ export function XiaowangTestCostAnalysis({
     }
   }, [activeData, isSevenDayRange, isFiltered])
 
-  // Calculate average cost per day from currently active data (changes with filter toggle)
+  // Calculate average cost per day directly from raw data (changes with filter toggle)
   const avgCostPerDay = useMemo(() => {
-    if (!activeData || activeData.length === 0) return 0
-    const totalCost = activeData.reduce((sum, item) => sum + item.cost, 0)
-    const totalDays = activeData.length
+    // Determine which raw data to use based on filter state
+    let rawData = []
+    if (isFiltered && xiaowangTestData?.rawData && startDate && endDate) {
+      // Use filtered raw data
+      rawData = xiaowangTestData.rawData.filter((item: any) => {
+        return item.date >= startDate && item.date <= endDate
+      })
+    } else if (xiaowangTestData?.rawData) {
+      // Use all raw data
+      rawData = xiaowangTestData.rawData
+    }
+
+    if (!rawData || rawData.length === 0) return 0
+    const totalCost = rawData.reduce((sum, item) => sum + item.cost, 0)
+    const totalDays = rawData.length
     return totalDays > 0 ? totalCost / totalDays : 0
-  }, [activeData])
+  }, [xiaowangTestData, isFiltered, startDate, endDate])
+
+  // Calculate average for selected metric directly from raw data
+  const avgMetricPerDay = useMemo(() => {
+    // Determine which raw data to use based on filter state
+    let rawData = []
+    if (isFiltered && xiaowangTestData?.rawData && startDate && endDate) {
+      // Use filtered raw data
+      rawData = xiaowangTestData.rawData.filter((item: any) => {
+        return item.date >= startDate && item.date <= endDate
+      })
+    } else if (xiaowangTestData?.rawData) {
+      // Use all raw data
+      rawData = xiaowangTestData.rawData
+    }
+
+    if (!rawData || rawData.length === 0) return 0
+
+    let totalMetric = 0
+    switch (selectedMetric) {
+      case 'views':
+        totalMetric = rawData.reduce((sum, item) => sum + item.clicks, 0)
+        break
+      case 'likes':
+        totalMetric = rawData.reduce((sum, item) => sum + item.likes, 0)
+        break
+      case 'followers':
+        totalMetric = rawData.reduce((sum, item) => sum + item.followers, 0)
+        break
+      case 'leads':
+        // For leads, we need to calculate from brokerData
+        const leadsPerDate: Record<string, number> = {}
+        if (brokerData && brokerData.length > 0) {
+          const uniqueClientsByDate: Record<string, Set<any>> = {}
+          brokerData.forEach((item) => {
+            const dateField = item.date || item['日期'] || item.Date || item.时间
+            if (dateField && item.no !== null && item.no !== undefined) {
+              let date: string
+              if (typeof dateField === 'number') {
+                const excelDate = new Date((dateField - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (typeof dateField === 'string' && /^\d+$/.test(dateField)) {
+                const excelSerialNumber = parseInt(dateField)
+                const excelDate = new Date((excelSerialNumber - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (dateField instanceof Date) {
+                date = dateField.toISOString().split('T')[0]
+              } else {
+                date = String(dateField).split(' ')[0]
+              }
+              if (date && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                if (!uniqueClientsByDate[date]) {
+                  uniqueClientsByDate[date] = new Set()
+                }
+                uniqueClientsByDate[date].add(item.no)
+              }
+            }
+          })
+          Object.keys(uniqueClientsByDate).forEach(date => {
+            leadsPerDate[date] = uniqueClientsByDate[date].size
+          })
+        }
+        totalMetric = rawData.reduce((sum, item) => sum + (leadsPerDate[item.date] || 0), 0)
+        break
+      default:
+        totalMetric = 0
+    }
+
+    const totalDays = rawData.length
+    return totalDays > 0 ? totalMetric / totalDays : 0
+  }, [xiaowangTestData, brokerData, selectedMetric, isFiltered, startDate, endDate])
+
+  // Calculate average cost per metric (total cost ÷ total metric)
+  const avgCostPerMetric = useMemo(() => {
+    // Determine which raw data to use based on filter state
+    let rawData = []
+    if (isFiltered && xiaowangTestData?.rawData && startDate && endDate) {
+      // Use filtered raw data
+      rawData = xiaowangTestData.rawData.filter((item: any) => {
+        return item.date >= startDate && item.date <= endDate
+      })
+    } else if (xiaowangTestData?.rawData) {
+      // Use all raw data
+      rawData = xiaowangTestData.rawData
+    }
+
+    if (!rawData || rawData.length === 0) return 0
+
+    const totalCost = rawData.reduce((sum, item) => sum + item.cost, 0)
+    let totalMetric = 0
+
+    switch (selectedMetric) {
+      case 'views':
+        totalMetric = rawData.reduce((sum, item) => sum + item.clicks, 0)
+        break
+      case 'likes':
+        totalMetric = rawData.reduce((sum, item) => sum + item.likes, 0)
+        break
+      case 'followers':
+        totalMetric = rawData.reduce((sum, item) => sum + item.followers, 0)
+        break
+      case 'leads':
+        // For leads, we need to calculate from brokerData
+        const leadsPerDate: Record<string, number> = {}
+        if (brokerData && brokerData.length > 0) {
+          const uniqueClientsByDate: Record<string, Set<any>> = {}
+          brokerData.forEach((item) => {
+            const dateField = item.date || item['日期'] || item.Date || item.时间
+            if (dateField && item.no !== null && item.no !== undefined) {
+              let date: string
+              if (typeof dateField === 'number') {
+                const excelDate = new Date((dateField - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (typeof dateField === 'string' && /^\d+$/.test(dateField)) {
+                const excelSerialNumber = parseInt(dateField)
+                const excelDate = new Date((excelSerialNumber - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (dateField instanceof Date) {
+                date = dateField.toISOString().split('T')[0]
+              } else {
+                date = String(dateField).split(' ')[0]
+              }
+              if (date && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                if (!uniqueClientsByDate[date]) {
+                  uniqueClientsByDate[date] = new Set()
+                }
+                uniqueClientsByDate[date].add(item.no)
+              }
+            }
+          })
+          Object.keys(uniqueClientsByDate).forEach(date => {
+            leadsPerDate[date] = uniqueClientsByDate[date].size
+          })
+        }
+        totalMetric = rawData.reduce((sum, item) => sum + (leadsPerDate[item.date] || 0), 0)
+        break
+      default:
+        totalMetric = 0
+    }
+
+    return totalMetric > 0 ? totalCost / totalMetric : 0
+  }, [xiaowangTestData, brokerData, selectedMetric, isFiltered, startDate, endDate])
+
+  // Get lighter version of metric color for average line
+  const getLighterColor = (color: string) => {
+    switch (color) {
+      case '#3CBDE5': return '#A8E6F7' // lighter blue for views
+      case '#EF3C99': return '#F8A6CE' // lighter pink for likes
+      case '#10B981': return '#7EDCC4' // lighter green for followers
+      case '#F59E0B': return '#FBC366' // lighter amber for leads
+      default: return color + '80' // fallback with opacity
+    }
+  }
 
   // Calculate dynamic scales for both axes
   const { metricScale, costScale } = useMemo(() => {
@@ -531,6 +717,7 @@ export function XiaowangTestCostAnalysis({
 
     // Find min and max for selected metric
     const metricValues = chartData.map(d => d[metricConfig.dataKey]).filter(v => v > 0)
+    if (avgMetricPerDay > 0) metricValues.push(avgMetricPerDay)
     const minMetric = metricValues.length > 0 ? Math.min(...metricValues) : 0
     const maxMetric = metricValues.length > 0 ? Math.max(...metricValues) : 100
 
@@ -544,7 +731,7 @@ export function XiaowangTestCostAnalysis({
       metricScale: calculateNiceScale(minMetric, maxMetric, 5),
       costScale: calculateNiceScale(minCost, maxCost, 5)
     }
-  }, [chartData, metricConfig.dataKey, avgCostPerDay])
+  }, [chartData, metricConfig.dataKey, avgCostPerDay, avgMetricPerDay])
 
   // Format date display
   const formatDate = (dateStr: string) => {
@@ -680,7 +867,7 @@ export function XiaowangTestCostAnalysis({
             <Button
               variant={isFiltered ? "default" : "outline"}
               size="sm"
-              onClick={() => setIsFiltered(!isFiltered)}
+              onClick={() => onFilterChange?.(!isFiltered)}
               className={isFiltered
                 ? 'bg-gradient-to-r from-[#751FAE] to-[#8B5CF6] hover:from-[#6B1F9A] hover:to-[#7C3AED] text-white border-0'
                 : 'border-[#751FAE] text-[#751FAE] hover:bg-[#751FAE] hover:text-white'
@@ -732,7 +919,7 @@ export function XiaowangTestCostAnalysis({
                 tickFormatter={(value) => {
                   if (value >= 1000000) return `${(value/1000000).toFixed(1)}M`
                   if (value >= 1000) return `${(value/1000).toFixed(1)}K`
-                  return value.toFixed(0)
+                  return formatSmartDecimal(value)
                 }}
                 label={{ value: metricConfig.yAxisLabel, angle: 90, position: 'insideRight' }}
               />
@@ -745,25 +932,20 @@ export function XiaowangTestCostAnalysis({
                 <ReferenceLine
                   yAxisId="cost"
                   y={avgCostPerDay}
-                  stroke="#FF701F"
+                  stroke="#C4A5E7"
                   strokeDasharray="8 4"
                   strokeWidth={2}
                 />
               )}
 
-              {/* Average Cost Legend Line */}
-              {avgCostPerDay > 0 && (
-                <Line
-                  yAxisId="cost"
-                  type="monotone"
-                  dataKey={() => null}
-                  stroke="#FF701F"
+              {/* Average Metric Reference Line */}
+              {avgMetricPerDay > 0 && (
+                <ReferenceLine
+                  yAxisId="metric"
+                  y={avgMetricPerDay}
+                  stroke={getLighterColor(metricConfig.color)}
                   strokeDasharray="8 4"
                   strokeWidth={2}
-                  dot={false}
-                  name={`Average Cost per Day: $${avgCostPerDay.toFixed(0)}`}
-                  connectNulls={false}
-                  legendType="line"
                 />
               )}
 
@@ -775,7 +957,7 @@ export function XiaowangTestCostAnalysis({
                 stroke="#751FAE"
                 strokeWidth={3}
                 dot={{ fill: "#751FAE", strokeWidth: 2, r: 4 }}
-                name="Cost ($)"
+                name={`Cost (Avg: $${avgCostPerDay.toFixed(2)})`}
                 connectNulls={false}
               />
 
@@ -787,7 +969,7 @@ export function XiaowangTestCostAnalysis({
                 stroke={metricConfig.color}
                 strokeWidth={3}
                 dot={{ fill: metricConfig.color, strokeWidth: 2, r: 4 }}
-                name={metricConfig.name}
+                name={`${metricConfig.name} (Avg: ${avgMetricPerDay >= 1000 ? `${formatSmartDecimal(avgMetricPerDay/1000)}K` : formatSmartDecimal(avgMetricPerDay)})`}
                 connectNulls={false}
               />
 

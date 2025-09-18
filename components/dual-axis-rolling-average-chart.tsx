@@ -115,9 +115,10 @@ function calculateNiceScale(minValue: number, maxValue: number, targetTicks: num
 export function DualAxisRollingAverageChart({ data, title = "7-Day Rolling Average Analysis: Cost & Metrics", selectedDates = [], notesData = [] }: DualAxisRollingAverageChartProps) {
   // State for metric selection
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('clicks')
-  
-  // Debug log for selectedDates
+
+  // Debug log for selectedDates and notesData
   console.log('Chart received selectedDates:', selectedDates)
+  console.log('Chart received notesData:', notesData?.length || 0, 'posts')
   
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return []

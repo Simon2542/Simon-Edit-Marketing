@@ -11,11 +11,13 @@ import { DailyLeadsChart } from "@/components/daily-leads-chart"
 import { PieChartWithFilter } from "@/components/pie-chart-with-filter"
 import { BrokerWeeklyDonutChart } from "@/components/broker-weekly-donut-chart"
 import { BrokerActivityHeatmap } from "@/components/broker-activity-heatmap"
+import { MonthlyPatternChart } from "@/components/monthly-pattern-chart"
 import { AcquisitionTimeAnalysis } from "@/components/acquisition-time-analysis"
 import { WeeklyAnalysis, WeeklyOverallAverage } from "@/components/weekly-analysis"
 import { ExcelUpload } from "@/components/excel-upload"
 import { AccountSwitcher } from "@/components/ui/platform-switcher"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Eye, EyeOff } from "lucide-react"
 import { LifeCarDailyTrends } from "@/components/lifecar-daily-trends"
@@ -29,6 +31,7 @@ import { MonthlyCostPerMetricChart } from "@/components/monthly-cost-per-metric-
 import { parseLifeCarData, aggregateByMonth, filterByDateRange, type LifeCarDailyData, type LifeCarMonthlyData } from "@/lib/lifecar-data-processor"
 import { LifeCarNotesModal } from "@/components/lifecar-notes-modal"
 import { XiaowangUpload } from "@/components/xiaowang-upload"
+import { XiaowangDualUpload } from "@/components/xiaowang-dual-upload"
 import { XiaowangTestCostAnalysis } from "@/components/xiaowang-test-cost-analysis"
 import { XiaowangTestCostPerMetric } from "@/components/xiaowang-test-cost-per-metric"
 import { XiaowangTestWeeklyCostAnalysis } from "@/components/xiaowang-test-weekly-cost-analysis"
@@ -37,12 +40,16 @@ import { XiaowangTestWeeklyAnalysis } from "@/components/xiaowang-test-weekly-an
 import { XiaowangTestWeeklyOverallAverage, XiaowangTestWeeklyAnalysis as XiaowangTestWeeklyAnalysisAdapted } from "@/components/xiaowang-test-weekly-analysis-adapted"
 import { XiaowangTestMonthlyCostAnalysis } from "@/components/xiaowang-test-monthly-cost-analysis"
 import { XiaowangTestMonthlyCostPerMetric } from "@/components/xiaowang-test-monthly-cost-per-metric"
+import { XiaowangTestCampaignOverview } from "@/components/xiaowang-test-campaign-overview"
+import { XiaowangTestOverviewStats } from "@/components/xiaowang-test-overview-stats"
 // 移除静态导入，改为动态API调用
 
 // 小王测试数据类型定义
 interface XiaowangTestData {
   adData: any[];
+  rawData: any[]; // 组件期望的字段
   brokerData: any[];
+  dailyData?: any[];
   summary: {
     totalCost: number;
     totalImpressions: number;
@@ -249,7 +256,9 @@ export default function Home() {
   const [showXiaowangTestUpload, setShowXiaowangTestUpload] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [hiddenModules, setHiddenModules] = useState<{[account: string]: string[]}>({});
+  const [hiddenModules, setHiddenModules] = useState<{[account: string]: string[]}>({
+    'xiaowang-test': ['activity-heatmap'] // Template is hidden by default for xiaowang-test
+  });
   
   // 账号筛选状态
   const [selectedAccount, setSelectedAccount] = useState('xiaowang');
@@ -258,24 +267,15 @@ export default function Home() {
   const [xiaowangSelectedMetric, setXiaowangSelectedMetric] = useState<'views' | 'likes' | 'followers' | 'leads'>('views');
 
   // 小王咨询Weekly Performance时间段筛选状态
-  const [weeklyTimePeriod, setWeeklyTimePeriod] = useState<'3months' | '6months' | '1year'>('3months');
+  const [weeklyTimePeriod, setWeeklyTimePeriod] = useState<number>(12); // Default 12 weeks
 
   // 计算Weekly Performance的时间范围
   const getWeeklyTimePeriodRange = () => {
     const endDate = new Date();
     const startDate = new Date();
 
-    switch (weeklyTimePeriod) {
-      case '3months':
-        startDate.setMonth(endDate.getMonth() - 3);
-        break;
-      case '6months':
-        startDate.setMonth(endDate.getMonth() - 6);
-        break;
-      case '1year':
-        startDate.setFullYear(endDate.getFullYear() - 1);
-        break;
-    }
+    // Calculate start date based on number of weeks
+    startDate.setDate(endDate.getDate() - (weeklyTimePeriod * 7));
 
     return {
       startDate: startDate.toISOString().split('T')[0],
@@ -295,6 +295,9 @@ export default function Home() {
   // LifeCar Monthly Analysis图表同步状态
   const [monthlyChartMetric, setMonthlyChartMetric] = useState<'views' | 'likes' | 'followers'>('views');
 
+  // 小王测试图表同步状态 - Day of Week Analysis的两个图表按钮同步
+  const [xiaowangChartFiltered, setXiaowangChartFiltered] = useState(true);
+
 
   // 账号切换处理函数
   const handleAccountChange = (account: string) => {
@@ -305,6 +308,11 @@ export default function Home() {
       setLifecarChartMetric('views');
       setLifecarChartFiltered(true);
       setMonthlyChartMetric('views');
+    }
+
+    // 当切换到小王测试账号时，重置按钮状态为默认值
+    if (account === 'xiaowang-test') {
+      setXiaowangChartFiltered(true);
     }
     
     // 小王测试账号不自动加载数据，只使用上传的数据
@@ -327,6 +335,14 @@ export default function Home() {
       // 切换到Monthly Analysis时，重置按钮状态为View
       else if (moduleId === 'activity-heatmap') {
         setMonthlyChartMetric('views');
+      }
+    }
+
+    // 当在小王测试账号中切换页面时，重置相应的按钮状态
+    if (selectedAccount === 'xiaowang-test') {
+      // 切换到Day of Week Analysis时，重置按钮状态
+      if (moduleId === 'cost') {
+        setXiaowangChartFiltered(true);
       }
     }
   };
@@ -669,6 +685,14 @@ export default function Home() {
   //   loadLifeCarData();
   // }, []);
 
+  // 监听dataRefreshKey变化，重新加载数据
+  useEffect(() => {
+    if (dataRefreshKey > 0) {
+      console.log('Data refresh triggered, reloading data...');
+      loadData();
+    }
+  }, [dataRefreshKey]);
+
   // Handle successful upload - use uploaded data directly
   const handleUploadSuccess = async (uploadedData?: any) => {
     try {
@@ -766,11 +790,11 @@ export default function Home() {
       ];
     } else if (account === 'xiaowang-test') {
       return [
+        { id: 'campaign-overview', name: 'Campaign Overview', icon: '📈', desc: 'Daily performance metrics' },
         { id: 'broker', name: 'Broker Distribution', icon: '📊', desc: 'Broker performance analysis' },
         { id: 'cost', name: 'Cost Analysis', icon: '💰', desc: 'Cost comparison analysis' },
-        { id: 'time-analysis', name: 'Time Analysis', icon: '⏰', desc: 'Acquisition time distribution' },
         { id: 'weekly-analysis', name: 'Weekly Analysis', icon: '📈', desc: 'Weekly performance insights' },
-        { id: 'activity-heatmap', name: 'Activity Heatmap', icon: '🔥', desc: 'Broker activity patterns' }
+        { id: 'activity-heatmap', name: 'Template', icon: '🔥', desc: 'Broker activity patterns' }
       ];
     } else {
       return [
@@ -2094,80 +2118,690 @@ export default function Home() {
               </div>
             )}
 
-            {/* 小王测试概览统计 */}
-            {!xiaowangTestLoading && filteredXiaowangTestData && (
-              <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
-                {/* 小王测试数据统计 */}
-                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Ad Cost</div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    ${filteredXiaowangTestData.summary?.totalCost?.toFixed(0) || '0'}
-                  </div>
-                  <div className="text-xs font-semibold text-gray-600">Advertising spend</div>
+            {/* 小王测试概览统计 - LifeCar样式 */}
+            {!xiaowangTestLoading && xiaowangTestData?.rawData && (
+              <div className="max-w-7xl mx-auto mb-6">
+                {/* First row - 4 cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                  {/* Views 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Views</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        {(() => {
+                          // 使用原始数据，根据时间筛选
+                          let rawData = xiaowangTestData.rawData;
+                          if (startDate && endDate) {
+                            rawData = xiaowangTestData.rawData.filter((item: any) => {
+                              return item.date >= startDate && item.date <= endDate;
+                            });
+                          }
+                          const totalClicks = rawData.reduce((sum: number, item: any) => sum + (item.clicks || 0), 0);
+                          return totalClicks.toLocaleString();
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            // 获取当前时间段的原始数据
+                            let currentRawData = xiaowangTestData.rawData;
+                            if (startDate && endDate) {
+                              currentRawData = xiaowangTestData.rawData.filter((item: any) => {
+                                return item.date >= startDate && item.date <= endDate;
+                              });
+                            }
+
+                            const isNoTimeFilter = !startDate || !endDate;
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            // 计算当前时间段的总点击数和天数
+                            const totalClicks = currentRawData.reduce((sum: number, item: any) => sum + (item.clicks || 0), 0);
+                            const currentDays = currentRawData.length;
+                            const currentAvgClicks = currentDays > 0 ? totalClicks / currentDays : 0;
+
+                            // 计算所有时间的平均每日点击数（与Cost Analysis相同逻辑）
+                            const allTimeRawData = xiaowangTestData.rawData;
+                            const allTimeTotalClicks = allTimeRawData.reduce((sum: number, item: any) => sum + (item.clicks || 0), 0);
+                            const allTimeDays = allTimeRawData.length;
+                            const allTimeAvgClicks = allTimeDays > 0 ? allTimeTotalClicks / allTimeDays : 0;
+
+                            const clicksDifference = currentAvgClicks - allTimeAvgClicks;
+                            const clicksDifferencePercent = allTimeAvgClicks > 0 ? ((currentAvgClicks - allTimeAvgClicks) / allTimeAvgClicks) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${clicksDifference >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-bold flex items-center`}>
+                                  {clicksDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(clicksDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const allTimePeriodAvgClicks = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.clicks || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            return `${currentPeriodLength}-day Avg: ${allTimePeriodAvgClicks.toFixed(0)} views`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Likes 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Likes</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        {(() => {
+                          const totalLikes = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0);
+                          return totalLikes.toLocaleString();
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalLikes = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0);
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const allTimePeriodAvgLikes = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const likesDifference = totalLikes - allTimePeriodAvgLikes;
+                            const likesDifferencePercent = allTimePeriodAvgLikes > 0 ? ((totalLikes - allTimePeriodAvgLikes) / allTimePeriodAvgLikes) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${likesDifference >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-bold flex items-center`}>
+                                  {likesDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(likesDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const allTimePeriodAvgLikes = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            return `${currentPeriodLength}-day Avg: ${allTimePeriodAvgLikes.toFixed(0)} likes`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* New Followers 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">New Followers</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        {(() => {
+                          const totalFollowers = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0);
+                          return totalFollowers.toLocaleString();
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalFollowers = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0);
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const allTimePeriodAvgFollowers = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const followersDifference = totalFollowers - allTimePeriodAvgFollowers;
+                            const followersDifferencePercent = allTimePeriodAvgFollowers > 0 ? ((totalFollowers - allTimePeriodAvgFollowers) / allTimePeriodAvgFollowers) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${followersDifference >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-bold flex items-center`}>
+                                  {followersDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(followersDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const allTimePeriodAvgFollowers = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            return `${currentPeriodLength}-day Avg: ${allTimePeriodAvgFollowers.toFixed(0)} followers`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Leads 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Leads</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        {(() => {
+                          // 使用 Clients_info (new) sheet 数据计算Leads
+                          if (!brokerDataJson || brokerDataJson.length === 0) return '0';
+
+                          // 根据时间筛选过滤leads数据
+                          let filteredLeads = brokerDataJson;
+                          if (startDate && endDate) {
+                            filteredLeads = brokerDataJson.filter((item: any) => {
+                              if (!item || typeof item !== 'object') return false;
+
+                              let dateValue: string | null = null;
+                              const dateFields = ['Date', 'date', '时间', 'Date ', 'date '];
+                              for (const field of dateFields) {
+                                if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+                                  if (typeof item[field] === 'number') {
+                                    const excelDate = new Date((item[field] - 25569) * 86400 * 1000);
+                                    if (!isNaN(excelDate.getTime())) {
+                                      dateValue = excelDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  } else if (typeof item[field] === 'string') {
+                                    const parsedDate = new Date(item[field]);
+                                    if (!isNaN(parsedDate.getTime())) {
+                                      dateValue = parsedDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+
+                              return dateValue && dateValue >= startDate && dateValue <= endDate;
+                            });
+                          }
+
+                          return filteredLeads.length.toLocaleString();
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            if (!brokerDataJson || brokerDataJson.length === 0) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const isNoTimeFilter = !startDate || !endDate;
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            // 计算当前时间段的leads数量
+                            let currentLeads = brokerDataJson.filter((item: any) => {
+                              if (!item || typeof item !== 'object') return false;
+
+                              let dateValue: string | null = null;
+                              const dateFields = ['Date', 'date', '时间', 'Date ', 'date '];
+                              for (const field of dateFields) {
+                                if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+                                  if (typeof item[field] === 'number') {
+                                    const excelDate = new Date((item[field] - 25569) * 86400 * 1000);
+                                    if (!isNaN(excelDate.getTime())) {
+                                      dateValue = excelDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  } else if (typeof item[field] === 'string') {
+                                    const parsedDate = new Date(item[field]);
+                                    if (!isNaN(parsedDate.getTime())) {
+                                      dateValue = parsedDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+
+                              return dateValue && dateValue >= startDate && dateValue <= endDate;
+                            }).length;
+
+                            // 计算时间段天数
+                            const currentStartDate = new Date(startDate);
+                            const currentEndDate = new Date(endDate);
+                            const timeDiff = currentEndDate.getTime() - currentStartDate.getTime();
+                            const currentDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+                            const currentAvgLeads = currentDays > 0 ? currentLeads / currentDays : 0;
+
+                            // 计算所有时间的平均每日leads数
+                            const allTimeLeads = brokerDataJson.length;
+                            const allTimeDays = Math.max(1, xiaowangTestData?.rawData?.length || 1);
+                            const allTimeAvgLeads = allTimeLeads / allTimeDays;
+
+                            const leadsDifference = currentAvgLeads - allTimeAvgLeads;
+                            const leadsDifferencePercent = allTimeAvgLeads > 0 ? ((currentAvgLeads - allTimeAvgLeads) / allTimeAvgLeads) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${leadsDifference >= 0 ? 'text-green-600' : 'text-red-600'} text-sm font-bold flex items-center`}>
+                                  {leadsDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(leadsDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            if (!brokerDataJson || brokerDataJson.length === 0) return "No data";
+
+                            if (!startDate || !endDate) {
+                              const allTimeLeads = brokerDataJson.length;
+                              const allTimeDays = Math.max(1, xiaowangTestData?.rawData?.length || 1);
+                              const allTimeAvgLeads = allTimeLeads / allTimeDays;
+                              return `All-time Avg: ${allTimeAvgLeads.toFixed(1)} leads/day`;
+                            }
+
+                            const currentStartDate = new Date(startDate);
+                            const currentEndDate = new Date(endDate);
+                            const timeDiff = currentEndDate.getTime() - currentStartDate.getTime();
+                            const currentDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+
+                            const allTimeLeads = brokerDataJson.length;
+                            const allTimeDays = Math.max(1, xiaowangTestData?.rawData?.length || 1);
+                            const periodAvgLeads = allTimeLeads / Math.ceil(allTimeDays / currentDays);
+
+                            return `${currentDays}-day Avg: ${periodAvgLeads.toFixed(1)} leads`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Impressions</div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    {filteredXiaowangTestData.summary?.totalImpressions?.toLocaleString() || '0'}
-                  </div>
-                  <div className="text-xs font-semibold text-gray-600">Ad views</div>
+                {/* Second row - 5 cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                  {/* Cost 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Cost</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        ${(() => {
+                          const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                          return totalSpend.toFixed(2);
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const allTimePeriodAvgSpend = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const spendDifference = totalSpend - allTimePeriodAvgSpend;
+                            const spendDifferencePercent = allTimePeriodAvgSpend > 0 ? ((totalSpend - allTimePeriodAvgSpend) / allTimePeriodAvgSpend) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${spendDifference >= 0 ? 'text-red-600' : 'text-green-600'} text-sm font-bold flex items-center`}>
+                                  {spendDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(spendDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const allTimePeriodAvgSpend = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.ceil(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            return `${currentPeriodLength}-day Avg: $${allTimePeriodAvgSpend.toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cost per View 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Cost per View</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        ${(() => {
+                          const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                          const totalClicks = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.clicks || 0), 0);
+                          const cpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
+                          return cpc.toFixed(2);
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                            const totalClicks = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.clicks || 0), 0);
+                            const cpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const avgSpendForCPC = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgClicksForCPC = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.clicks || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPC = avgClicksForCPC > 0 ? avgSpendForCPC / avgClicksForCPC : 0;
+                            const cpcDifference = cpc - allTimePeriodAvgCPC;
+                            const cpcDifferencePercent = allTimePeriodAvgCPC > 0 ? ((cpc - allTimePeriodAvgCPC) / allTimePeriodAvgCPC) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${cpcDifference >= 0 ? 'text-red-600' : 'text-green-600'} text-sm font-bold flex items-center`}>
+                                  {cpcDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(cpcDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const avgSpendForCPC = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgClicksForCPC = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.clicks || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPC = avgClicksForCPC > 0 ? avgSpendForCPC / avgClicksForCPC : 0;
+                            return `${currentPeriodLength}-day Avg: $${allTimePeriodAvgCPC.toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cost per Like 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Cost per Like</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        ${(() => {
+                          const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                          const totalLikes = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0);
+                          const costPerLike = totalLikes > 0 ? totalSpend / totalLikes : 0;
+                          return costPerLike.toFixed(2);
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                            const totalLikes = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0);
+                            const costPerLike = totalLikes > 0 ? totalSpend / totalLikes : 0;
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const avgSpendForCPL = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgLikesForCPL = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPL = avgLikesForCPL > 0 ? avgSpendForCPL / avgLikesForCPL : 0;
+                            const costPerLikeDifference = costPerLike - allTimePeriodAvgCPL;
+                            const costPerLikeDifferencePercent = allTimePeriodAvgCPL > 0 ? ((costPerLike - allTimePeriodAvgCPL) / allTimePeriodAvgCPL) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${costPerLikeDifference >= 0 ? 'text-red-600' : 'text-green-600'} text-sm font-bold flex items-center`}>
+                                  {costPerLikeDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(costPerLikeDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const avgSpendForCPL = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgLikesForCPL = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.likes || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPL = avgLikesForCPL > 0 ? avgSpendForCPL / avgLikesForCPL : 0;
+                            return `${currentPeriodLength}-day Avg: $${allTimePeriodAvgCPL.toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cost per Follower 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Cost per Follower</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        ${(() => {
+                          const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                          const totalFollowers = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0);
+                          const costPerFollower = totalFollowers > 0 ? totalSpend / totalFollowers : 0;
+                          return costPerFollower.toFixed(2);
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+                            const totalFollowers = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0);
+                            const costPerFollower = totalFollowers > 0 ? totalSpend / totalFollowers : 0;
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const avgSpendForCPF = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgFollowersForCPF = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPF = avgFollowersForCPF > 0 ? avgSpendForCPF / avgFollowersForCPF : 0;
+                            const costPerFollowerDifference = costPerFollower - allTimePeriodAvgCPF;
+                            const costPerFollowerDifferencePercent = allTimePeriodAvgCPF > 0 ? ((costPerFollower - allTimePeriodAvgCPF) / allTimePeriodAvgCPF) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${costPerFollowerDifference >= 0 ? 'text-red-600' : 'text-green-600'} text-sm font-bold flex items-center`}>
+                                  {costPerFollowerDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(costPerFollowerDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const avgSpendForCPF = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const avgFollowersForCPF = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.followers || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimePeriodAvgCPF = avgFollowersForCPF > 0 ? avgSpendForCPF / avgFollowersForCPF : 0;
+                            return `${currentPeriodLength}-day Avg: $${allTimePeriodAvgCPF.toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cost per Lead 卡片 */}
+                  <Card className="bg-white/95 backdrop-blur-xl shadow-lg border border-gray-200/50 glass-card-hover relative">
+                    <CardContent className="p-6 text-center">
+                      <div className="text-sm font-bold text-gray-700 mb-2">Cost per Lead</div>
+                      <div className="text-3xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent mb-1">
+                        ${(() => {
+                          // 计算总花费
+                          const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+
+                          // 计算leads数量（来自brokerDataJson，根据时间筛选）
+                          if (!brokerDataJson || brokerDataJson.length === 0) return '0.00';
+
+                          let filteredLeads = brokerDataJson;
+                          if (startDate && endDate) {
+                            filteredLeads = brokerDataJson.filter((item: any) => {
+                              if (!item || typeof item !== 'object') return false;
+
+                              let dateValue: string | null = null;
+                              const dateFields = ['Date', 'date', '时间', 'Date ', 'date '];
+                              for (const field of dateFields) {
+                                if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+                                  if (typeof item[field] === 'number') {
+                                    const excelDate = new Date((item[field] - 25569) * 86400 * 1000);
+                                    if (!isNaN(excelDate.getTime())) {
+                                      dateValue = excelDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  } else if (typeof item[field] === 'string') {
+                                    const parsedDate = new Date(item[field]);
+                                    if (!isNaN(parsedDate.getTime())) {
+                                      dateValue = parsedDate.toISOString().split('T')[0];
+                                      break;
+                                    }
+                                  }
+                                }
+                              }
+
+                              return dateValue && dateValue >= startDate && dateValue <= endDate;
+                            });
+                          }
+
+                          const totalLeads = filteredLeads.length;
+                          const costPerLead = totalLeads > 0 ? totalSpend / totalLeads : 0;
+                          return costPerLead.toFixed(2);
+                        })()}
+                      </div>
+
+                      {/* 与平均值对比 */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center gap-1">
+                          {(() => {
+                            if (!brokerDataJson || brokerDataJson.length === 0) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const totalSpend = filteredXiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0);
+
+                            // 计算当前时间段的leads
+                            let currentLeads = brokerDataJson;
+                            if (startDate && endDate) {
+                              currentLeads = brokerDataJson.filter((item: any) => {
+                                if (!item || typeof item !== 'object') return false;
+
+                                let dateValue: string | null = null;
+                                const dateFields = ['Date', 'date', '时间', 'Date ', 'date '];
+                                for (const field of dateFields) {
+                                  if (item[field] !== undefined && item[field] !== null && item[field] !== '') {
+                                    if (typeof item[field] === 'number') {
+                                      const excelDate = new Date((item[field] - 25569) * 86400 * 1000);
+                                      if (!isNaN(excelDate.getTime())) {
+                                        dateValue = excelDate.toISOString().split('T')[0];
+                                        break;
+                                      }
+                                    } else if (typeof item[field] === 'string') {
+                                      const parsedDate = new Date(item[field]);
+                                      if (!isNaN(parsedDate.getTime())) {
+                                        dateValue = parsedDate.toISOString().split('T')[0];
+                                        break;
+                                      }
+                                    }
+                                  }
+                                }
+
+                                return dateValue && dateValue >= startDate && dateValue <= endDate;
+                              });
+                            }
+
+                            const currentTotalLeads = currentLeads.length;
+                            const costPerLead = currentTotalLeads > 0 ? totalSpend / currentTotalLeads : 0;
+                            const isNoTimeFilter = !startDate || !endDate || filteredXiaowangTestData.dailyData.length === xiaowangTestData?.dailyData?.length;
+
+                            if (isNoTimeFilter) {
+                              return <span className="text-gray-400 text-sm font-bold flex items-center">▲ 0.0% <span className="text-xs text-gray-500 ml-1">vs Avg</span></span>;
+                            }
+
+                            // 计算全时间的平均Cost per Lead
+                            const allTimeSpend = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimeLeads = brokerDataJson.length / Math.floor((xiaowangTestData?.dailyData?.length || 1) / currentPeriodLength);
+                            const allTimePeriodAvgCPL = allTimeLeads > 0 ? allTimeSpend / allTimeLeads : 0;
+
+                            const costPerLeadDifference = costPerLead - allTimePeriodAvgCPL;
+                            const costPerLeadDifferencePercent = allTimePeriodAvgCPL > 0 ? ((costPerLead - allTimePeriodAvgCPL) / allTimePeriodAvgCPL) * 100 : 0;
+
+                            return (
+                              <>
+                                <span className={`${costPerLeadDifference >= 0 ? 'text-red-600' : 'text-green-600'} text-sm font-bold flex items-center`}>
+                                  {costPerLeadDifference >= 0 ? '▲' : '▼'}
+                                  {Math.abs(costPerLeadDifferencePercent).toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-gray-500">vs Avg</span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {(() => {
+                            if (!brokerDataJson || brokerDataJson.length === 0) return "No data";
+
+                            const currentPeriodLength = filteredXiaowangTestData.dailyData.length;
+                            const allTimeSpend = xiaowangTestData?.dailyData && xiaowangTestData.dailyData.length > 0 && currentPeriodLength > 0 ?
+                              xiaowangTestData.dailyData.reduce((sum, item) => sum + (item.cost || 0), 0) / Math.floor(xiaowangTestData.dailyData.length / currentPeriodLength) : 0;
+                            const allTimeLeads = brokerDataJson.length / Math.floor((xiaowangTestData?.dailyData?.length || 1) / currentPeriodLength);
+                            const allTimePeriodAvgCPL = allTimeLeads > 0 ? allTimeSpend / allTimeLeads : 0;
+                            return `${currentPeriodLength}-day Avg: $${allTimePeriodAvgCPL.toFixed(2)}`;
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-
-                <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
-                  <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                    <svg className="w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </div>
-                  <div className="text-sm font-bold text-gray-700 mb-2">Ad Conversions</div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-purple-700 to-pink-600 bg-clip-text text-transparent">
-                    {filteredXiaowangTestData.summary?.totalConversions || '0'}
-                  </div>
-                  <div className="text-xs font-semibold text-gray-600">WeChat & DM inquiries</div>
-                </div>
-
-                {/* 小王咨询数据统计（如果存在） */}
-                {brokerDataJson.length > 0 && (
-                  <>
-                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-blue-200/50 p-6 glass-card-hover relative text-center">
-                      <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <div className="text-sm font-bold text-gray-700 mb-2">Total Clients</div>
-                      <div className="text-4xl font-black bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
-                        {totalClients}
-                      </div>
-                      <div className="text-xs font-semibold text-gray-600">Consultation clients</div>
-                    </div>
-
-                    <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-blue-200/50 p-6 glass-card-hover relative text-center">
-                      <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <div className="text-sm font-bold text-gray-700 mb-2">Active Brokers</div>
-                      <div className="text-4xl font-black bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
-                        {activeBrokers}
-                      </div>
-                      <div className="text-xs font-semibold text-gray-600">Active consultant brokers</div>
-                    </div>
-                  </>
-                )}
               </div>
             )}
 
@@ -2243,120 +2877,213 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Cost Analysis Module */}
-                {activeModule === 'cost' && (
+                {/* Campaign Overview Module */}
+                {activeModule === 'campaign-overview' && (
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
-                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[#751FAE]"></div>
-                      Day of Week Analysis
-                    </h2>
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">📈 Campaign Overview</h2>
 
-                    <XiaowangTestCostAnalysis
+
+                    <XiaowangTestCampaignOverview
                       xiaowangTestData={xiaowangTestData}
                       brokerData={brokerDataJson}
                       startDate={startDate}
                       endDate={endDate}
-                      selectedMetric={xiaowangSelectedMetric}
-                      onMetricChange={setXiaowangSelectedMetric}
                     />
+                  </div>
+                )}
 
-                    <div className="mt-8">
-                      <XiaowangTestCostPerMetric
-                        xiaowangTestData={xiaowangTestData}
-                        brokerData={brokerDataJson}
-                        startDate={startDate}
-                        endDate={endDate}
-                        selectedMetric={xiaowangSelectedMetric}
-                        onMetricChange={setXiaowangSelectedMetric}
-                      />
+                {/* Cost Analysis Module */}
+                {activeModule === 'cost' && (
+                  <>
+                    {/* Left Sidebar Navigation - positioned below sticky header/bar */}
+                    <div
+                      className="fixed left-4 z-30"
+                      style={{
+                        top: `${(startDate || endDate) ? '176px' : '116px'}`
+                      }}
+                    >
+                      <div className="bg-white/95 backdrop-blur-xl rounded-lg border border-gray-200/50 shadow-lg p-3 w-44">
+                        <nav className="space-y-1">
+                          <button
+                            onClick={() => {
+                              const element = document.getElementById('day-of-week-analysis');
+                              if (element) {
+                                // Calculate dynamic header heights
+                                let totalHeaderHeight = 96; // base sticky header height
+
+                                // Check if time filter sticky bar exists and is visible
+                                if (startDate || endDate) {
+                                  totalHeaderHeight += 60; // add sticky bar height (time filter bar)
+                                }
+
+                                const elementPosition = element.offsetTop;
+                                window.scrollTo({
+                                  top: elementPosition - totalHeaderHeight,
+                                  behavior: 'smooth'
+                                });
+                              }
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs text-gray-600 hover:text-[#751FAE] hover:bg-purple-50 rounded-md transition-all duration-200 flex items-center gap-2"
+                          >
+                            <div className="w-1.5 h-1.5 bg-[#751FAE]"></div>
+                            Day of Week
+                          </button>
+                          <button
+                            onClick={() => {
+                              const element = document.getElementById('weekly-performance');
+                              if (element) {
+                                // Calculate dynamic header heights
+                                let totalHeaderHeight = 96; // base sticky header height
+
+                                // Check if time filter sticky bar exists and is visible
+                                if (startDate || endDate) {
+                                  totalHeaderHeight += 60; // add sticky bar height (time filter bar)
+                                }
+
+                                const elementPosition = element.offsetTop;
+                                window.scrollTo({
+                                  top: elementPosition - totalHeaderHeight,
+                                  behavior: 'smooth'
+                                });
+                              }
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs text-gray-600 hover:text-[#751FAE] hover:bg-purple-50 rounded-md transition-all duration-200 flex items-center gap-2"
+                          >
+                            <div className="w-1.5 h-1.5 bg-[#751FAE]"></div>
+                            Weekly Performance
+                          </button>
+                          <button
+                            onClick={() => {
+                              const element = document.getElementById('monthly-analysis');
+                              if (element) {
+                                // Calculate dynamic header heights
+                                let totalHeaderHeight = 96; // base sticky header height
+
+                                // Check if time filter sticky bar exists and is visible
+                                if (startDate || endDate) {
+                                  totalHeaderHeight += 60; // add sticky bar height (time filter bar)
+                                }
+
+                                const elementPosition = element.offsetTop;
+                                window.scrollTo({
+                                  top: elementPosition - totalHeaderHeight,
+                                  behavior: 'smooth'
+                                });
+                              }
+                            }}
+                            className="w-full text-left px-2 py-1.5 text-xs text-gray-600 hover:text-[#751FAE] hover:bg-purple-50 rounded-md transition-all duration-200 flex items-center gap-2"
+                          >
+                            <div className="w-1.5 h-1.5 bg-[#751FAE]"></div>
+                            Monthly Analysis
+                          </button>
+                        </nav>
+                      </div>
                     </div>
 
-                    <div className="mt-12">
-                      <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-xl font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                    {/* Main Content */}
+                    <div className="max-w-7xl mx-auto mb-4 space-y-6">
+                      {/* Day of Week Analysis Section */}
+                      <div id="day-of-week-analysis">
+                        <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
                           <div className="w-4 h-4 bg-[#751FAE]"></div>
-                          Weekly Performance
+                          Day of Week Analysis
                         </h2>
-                        <div className="flex gap-2">
-                          <Button
-                            variant={weeklyTimePeriod === '3months' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setWeeklyTimePeriod('3months')}
-                            className={`text-xs font-medium transition-all duration-200 ${
-                              weeklyTimePeriod === '3months'
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
-                            }`}
-                          >
-                            Latest 3 months
-                          </Button>
-                          <Button
-                            variant={weeklyTimePeriod === '6months' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setWeeklyTimePeriod('6months')}
-                            className={`text-xs font-medium transition-all duration-200 ${
-                              weeklyTimePeriod === '6months'
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
-                            }`}
-                          >
-                            6 months
-                          </Button>
-                          <Button
-                            variant={weeklyTimePeriod === '1year' ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setWeeklyTimePeriod('1year')}
-                            className={`text-xs font-medium transition-all duration-200 ${
-                              weeklyTimePeriod === '1year'
-                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                                : 'bg-white/80 hover:bg-purple-50 text-gray-700 border-gray-300'
-                            }`}
-                          >
-                            1 year
-                          </Button>
+
+                        <XiaowangTestCostAnalysis
+                          xiaowangTestData={xiaowangTestData}
+                          brokerData={brokerDataJson}
+                          startDate={startDate}
+                          endDate={endDate}
+                          selectedMetric={xiaowangSelectedMetric}
+                          onMetricChange={setXiaowangSelectedMetric}
+                          isFiltered={xiaowangChartFiltered}
+                          onFilterChange={setXiaowangChartFiltered}
+                        />
+
+                        <div className="mt-8">
+                          <XiaowangTestCostPerMetric
+                            xiaowangTestData={xiaowangTestData}
+                            brokerData={brokerDataJson}
+                            startDate={startDate}
+                            endDate={endDate}
+                            selectedMetric={xiaowangSelectedMetric}
+                            onMetricChange={setXiaowangSelectedMetric}
+                            isFiltered={xiaowangChartFiltered}
+                            onFilterChange={setXiaowangChartFiltered}
+                          />
                         </div>
                       </div>
 
-                      <XiaowangTestWeeklyCostAnalysis
-                        xiaowangTestData={xiaowangTestData}
-                        brokerData={brokerDataJson}
-                        selectedMetric={xiaowangSelectedMetric}
-                        onMetricChange={setXiaowangSelectedMetric}
-                      />
+                      {/* Weekly Performance Section */}
+                      <div id="weekly-performance" className="mt-12">
+                        <div className="flex items-center justify-between mb-3">
+                          <h2 className="text-xl font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                            <div className="w-4 h-4 bg-[#751FAE]"></div>
+                            Weekly Performance
+                          </h2>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-gray-700">Latest</span>
+                            <input
+                              type="number"
+                              value={weeklyTimePeriod}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                if (value > 0 && value <= 104) { // Max 2 years = 104 weeks
+                                  setWeeklyTimePeriod(value);
+                                }
+                              }}
+                              className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              min="1"
+                              max="104"
+                            />
+                            <span className="text-sm font-medium text-gray-700">weeks</span>
+                          </div>
+                        </div>
 
-                      <div className="mt-8">
-                        <XiaowangTestWeeklyCostPerMetric
+                        <XiaowangTestWeeklyCostAnalysis
+                          xiaowangTestData={xiaowangTestData}
+                          brokerData={brokerDataJson}
+                          selectedMetric={xiaowangSelectedMetric}
+                          onMetricChange={setXiaowangSelectedMetric}
+                          weeklyTimePeriod={weeklyTimePeriod}
+                        />
+
+                        <div className="mt-8">
+                          <XiaowangTestWeeklyCostPerMetric
+                            xiaowangTestData={xiaowangTestData}
+                            brokerData={brokerDataJson}
+                            selectedMetric={xiaowangSelectedMetric}
+                            onMetricChange={setXiaowangSelectedMetric}
+                            weeklyTimePeriod={weeklyTimePeriod}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Monthly Analysis Section */}
+                      <div id="monthly-analysis" className="mt-12">
+                        <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
+                          <div className="w-4 h-4 bg-[#751FAE]"></div>
+                          Monthly Analysis
+                        </h2>
+
+                        <XiaowangTestMonthlyCostAnalysis
                           xiaowangTestData={xiaowangTestData}
                           brokerData={brokerDataJson}
                           selectedMetric={xiaowangSelectedMetric}
                           onMetricChange={setXiaowangSelectedMetric}
                         />
+
+                        <div className="mt-8">
+                          <XiaowangTestMonthlyCostPerMetric
+                            xiaowangTestData={xiaowangTestData}
+                            brokerData={brokerDataJson}
+                            selectedMetric={xiaowangSelectedMetric}
+                            onMetricChange={setXiaowangSelectedMetric}
+                          />
+                        </div>
                       </div>
                     </div>
-
-                    <div className="mt-12">
-                      <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat flex items-center gap-2">
-                        <div className="w-4 h-4 bg-[#751FAE]"></div>
-                        Monthly Analysis
-                      </h2>
-
-                      <XiaowangTestMonthlyCostAnalysis
-                        xiaowangTestData={xiaowangTestData}
-                        brokerData={brokerDataJson}
-                        selectedMetric={xiaowangSelectedMetric}
-                        onMetricChange={setXiaowangSelectedMetric}
-                      />
-
-                      <div className="mt-8">
-                        <XiaowangTestMonthlyCostPerMetric
-                          xiaowangTestData={xiaowangTestData}
-                          brokerData={brokerDataJson}
-                          selectedMetric={xiaowangSelectedMetric}
-                          onMetricChange={setXiaowangSelectedMetric}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  </>
                 )}
 
                 {/* Weekly Analysis Module */}
@@ -2396,8 +3123,50 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Template Module (activity-heatmap) */}
+                {activeModule === 'activity-heatmap' && (
+                  <div className="max-w-7xl mx-auto mb-4 space-y-6">
+                    <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">🔥 Template - Monthly Leads Pattern & Activity Analysis</h2>
+
+                    {/* Check if we have broker data for the components */}
+                    {brokerDataJson.length > 0 ? (
+                      <div className="space-y-6">
+                        {/* Monthly Leads Pattern Analysis */}
+                        <div className="glass-card rounded-lg overflow-hidden">
+                          <div className="p-4 border-b border-gray-200">
+                            <h3 className="text-lg font-semibold text-gray-800">Monthly Leads Pattern Analysis</h3>
+                            <p className="text-sm text-gray-600 mt-1">Analyze leads quantity patterns for the same months across different years - easier to identify seasonal trend</p>
+                          </div>
+                          <MonthlyPatternChart
+                            data={monthlyDataJson}
+                            title="Monthly Leads Pattern Analysis"
+                          />
+                        </div>
+
+                        {/* Activity Heatmap */}
+                        <div className="glass-card rounded-lg overflow-hidden">
+                          <div className="p-4 border-b border-gray-200">
+                            <h3 className="text-lg font-semibold text-gray-800">Broker Activity Heatmap</h3>
+                          </div>
+                          <BrokerActivityHeatmap brokerData={brokerDataJson} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12">
+                        <div className="text-6xl mb-6">🔥</div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
+                        <p className="text-gray-500 mb-4">Please upload both test data and consultation data to view the template analysis.</p>
+                        <div className="text-sm text-gray-400 space-y-1">
+                          <p>1. Upload 小王测试 data (CSV format)</p>
+                          <p>2. Upload 小王咨询 data with broker information</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Placeholder for other modules */}
-                {activeModule !== 'broker' && activeModule !== 'cost' && activeModule !== 'weekly-analysis' && (
+                {activeModule !== 'broker' && activeModule !== 'campaign-overview' && activeModule !== 'cost' && activeModule !== 'weekly-analysis' && activeModule !== 'activity-heatmap' && (
                   <div className="max-w-7xl mx-auto mb-4">
                     <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-12 text-center">
                       <div className="text-6xl mb-6">🚧</div>
@@ -2480,7 +3249,10 @@ export default function Home() {
       <LifeCarNotesModal
         isOpen={showNotesModal}
         onClose={handleNotesModalClose}
-        onDataUpdate={(data) => setLifeCarNotesData(data)}
+        onDataUpdate={(data) => {
+          console.log('LifeCar Posts data updated:', data.length, 'posts')
+          setLifeCarNotesData(data)
+        }}
         initialData={lifeCarNotesData}
         onDateSelect={(date) => {
           setSelectedNoteDates(prev => {
@@ -2500,9 +3272,12 @@ export default function Home() {
       {/* 小王测试数据上传模态框 */}
       {showXiaowangTestUpload && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="bg-white/90 backdrop-blur-xl rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-purple-500/20 border border-purple-200/50">
+          <div className="bg-white/90 backdrop-blur-xl rounded-xl p-6 max-w-3xl w-full mx-4 shadow-2xl shadow-purple-500/20 border border-purple-200/50">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">上传小王测试数据</h2>
+              <div>
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">Upload Xiaowang Data</h2>
+                <p className="text-sm text-gray-600 mt-1">Upload both test and consultation data simultaneously to access complete functionality</p>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -2512,22 +3287,38 @@ export default function Home() {
                 ✕
               </Button>
             </div>
-            <XiaowangUpload
-              onUploadSuccess={(data) => {
-                // 处理小王测试数据
+            <XiaowangDualUpload
+              onTestUploadSuccess={(data) => {
+                console.log('小王测试数据上传成功，设置数据...', data);
                 if (data) {
-                  // 设置小王测试数据
-                  setXiaowangTestData(data);
-
-                  // 同时使用当前的小王咨询数据（如果存在）
-                  // 这样小王测试页面就能同时显示两种数据
-                  if (brokerDataJson.length > 0 || weeklyDataJson.length > 0 || monthlyDataJson.length > 0) {
-                    console.log('Using existing 小王咨询 data with 小王测试 data');
-                  }
-
-                  setSelectedAccount('xiaowang-test');
-                  setShowXiaowangTestUpload(false);
+                  const newTestData = {
+                    adData: data.rawData || [],
+                    rawData: data.rawData || [], // 组件期望这个字段
+                    brokerData: brokerDataJson || [], // 使用现有的咨询数据，如果没有则为空数组
+                    summary: data.summary || {},
+                    dailyData: data.dailyData || []
+                  };
+                  console.log('设置小王测试数据:', newTestData);
+                  setXiaowangTestData(newTestData);
                 }
+                setSelectedAccount('xiaowang-test');
+              }}
+              onConsultationUploadSuccess={(data) => {
+                console.log('小王咨询数据上传成功，设置数据...');
+                if (data) {
+                  setBrokerDataJson(data.broker_data || []);
+                  setWeeklyDataJson(data.weekly_data || []);
+                  setMonthlyDataJson(data.monthly_data || []);
+                  setDailyCostDataJson(data.daily_cost_data || []);
+                  // 同时更新小王测试数据的broker部分
+                  if (xiaowangTestData) {
+                    setXiaowangTestData({
+                      ...xiaowangTestData,
+                      brokerData: data.broker_data || []
+                    });
+                  }
+                }
+                setSelectedAccount('xiaowang');
               }}
             />
           </div>

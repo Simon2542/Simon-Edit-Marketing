@@ -279,13 +279,53 @@ export function MonthlyViewsCostChart({
     return processMonthlyData(data)
   }, [data])
 
-  // Calculate average cost per month
+  // Calculate average cost per month from monthly aggregated data
   const avgCostPerMonth = useMemo(() => {
     if (!chartData || chartData.length === 0) return 0
     const totalCost = chartData.reduce((sum, item) => sum + item.cost, 0)
     const totalMonths = chartData.length
     return totalMonths > 0 ? totalCost / totalMonths : 0
   }, [chartData])
+
+  // Calculate average metric per month from monthly aggregated data
+  const avgMetricPerMonth = useMemo(() => {
+    if (!chartData || chartData.length === 0) return 0
+
+    // Calculate average from raw daily data, but convert to monthly scale
+    if (!data || data.length === 0) return 0
+
+    // First, group by month and calculate monthly totals from raw data
+    const monthlyTotals: { [key: string]: { metric: number, days: number } } = {}
+
+    data.forEach(item => {
+      const month = item.date.substring(0, 7) // YYYY-MM format
+      if (!monthlyTotals[month]) {
+        monthlyTotals[month] = { metric: 0, days: 0 }
+      }
+
+      let metricValue = 0
+      switch (metricConfig.dataKey) {
+        case 'views':
+          metricValue = item.clicks
+          break
+        case 'likes':
+          metricValue = item.likes
+          break
+        case 'followers':
+          metricValue = item.followers
+          break
+      }
+
+      monthlyTotals[month].metric += metricValue
+      monthlyTotals[month].days++
+    })
+
+    // Calculate average monthly total
+    const monthlyValues = Object.values(monthlyTotals).map(m => m.metric)
+    return monthlyValues.length > 0
+      ? monthlyValues.reduce((sum, val) => sum + val, 0) / monthlyValues.length
+      : 0
+  }, [data, chartData, metricConfig.dataKey])
 
   // Calculate dynamic scales for both axes
   const { metricScale, costScale } = useMemo(() => {
@@ -297,6 +337,7 @@ export function MonthlyViewsCostChart({
     }
     
     const metricValues = chartData.map(d => d[metricConfig.dataKey as keyof MonthlyData] as number).filter(v => v > 0)
+    if (avgMetricPerMonth > 0) metricValues.push(avgMetricPerMonth)
     const minMetric = metricValues.length > 0 ? Math.min(...metricValues) : 0
     const maxMetric = metricValues.length > 0 ? Math.max(...metricValues) : 100
     
@@ -309,7 +350,7 @@ export function MonthlyViewsCostChart({
       metricScale: calculateNiceScale(minMetric, maxMetric, 5),
       costScale: calculateNiceScale(minCost, maxCost, 5)
     }
-  }, [chartData, metricConfig.dataKey, avgCostPerMonth])
+  }, [chartData, metricConfig.dataKey, avgCostPerMonth, avgMetricPerMonth])
 
   // Format month display
   const formatMonth = (monthStr: string) => {
@@ -321,8 +362,17 @@ export function MonthlyViewsCostChart({
   // Custom tick component for X-axis with Posts count
   const CustomTick = (props: any) => {
     const { x, y, payload } = props
-    const monthStr = payload.value
-    const postsCount = notesMonthlyCount && notesMonthlyCount[monthStr] ? notesMonthlyCount[monthStr] : 0
+    const monthStr = payload.value // Format: "2024-09"
+
+    // Convert monthStr format "2024-09" to match notesMonthlyCount key format "Sep 2024"
+    const convertToNotesKey = (monthStr: string) => {
+      const [year, month] = monthStr.split('-')
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      return `${monthNames[parseInt(month) - 1]} ${year}`
+    }
+
+    const notesKey = convertToNotesKey(monthStr)
+    const postsCount = notesMonthlyCount && notesMonthlyCount[notesKey] ? notesMonthlyCount[notesKey] : 0
     
     return (
       <g transform={`translate(${x},${y})`}>
@@ -481,32 +531,28 @@ export function MonthlyViewsCostChart({
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               
-              {/* Average Cost per Month Reference Line - Orange dashed line */}
+              {/* Average Cost per Month Reference Line - Purple dashed line */}
               {avgCostPerMonth > 0 && (
-                <ReferenceLine 
+                <ReferenceLine
                   yAxisId="cost"
-                  y={avgCostPerMonth} 
-                  stroke="#FF8C00" 
+                  y={avgCostPerMonth}
+                  stroke="#C4A5E7"
+                  strokeDasharray="8 4"
+                  strokeWidth={2}
+                />
+              )}
+
+              {/* Average Metric per Month Reference Line - lighter version of metric color */}
+              {avgMetricPerMonth > 0 && (
+                <ReferenceLine
+                  yAxisId="metric"
+                  y={avgMetricPerMonth}
+                  stroke={`${metricConfig.color}80`}
                   strokeDasharray="8 4"
                   strokeWidth={2}
                 />
               )}
               
-              {/* Invisible Line for Legend display only - placed last to appear last in legend */}
-              {avgCostPerMonth > 0 && (
-                <Line
-                  yAxisId="cost"
-                  type="monotone"
-                  dataKey={() => null}
-                  stroke="#FF8C00"
-                  strokeDasharray="8 4"
-                  strokeWidth={2}
-                  dot={false}
-                  name={`Average Cost per Month: $${avgCostPerMonth.toFixed(0)}`}
-                  connectNulls={false}
-                  legendType="line"
-                />
-              )}
               
               {/* Cost Line - Left axis */}
               <Line
@@ -516,7 +562,7 @@ export function MonthlyViewsCostChart({
                 stroke="#751FAE"
                 strokeWidth={3}
                 dot={{ fill: '#751FAE', strokeWidth: 2, r: 4 }}
-                name="Cost ($)"
+                name={`Cost (Avg: $${avgCostPerMonth.toFixed(2)})`}
                 connectNulls={false}
               />
               
@@ -528,7 +574,7 @@ export function MonthlyViewsCostChart({
                 stroke={metricConfig.color}
                 strokeWidth={3}
                 dot={{ fill: metricConfig.color, strokeWidth: 2, r: 4 }}
-                name={metricConfig.name}
+                name={`${metricConfig.name} (Avg: ${avgMetricPerMonth >= 1000 ? `${(avgMetricPerMonth/1000).toFixed(2)}K` : avgMetricPerMonth.toFixed(2)})`}
                 connectNulls={false}
               />
               

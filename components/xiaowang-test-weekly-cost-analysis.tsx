@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -11,6 +11,7 @@ interface XiaowangTestWeeklyCostAnalysisProps {
   title?: string
   selectedMetric?: MetricType
   onMetricChange?: (metric: MetricType) => void
+  weeklyTimePeriod?: number
 }
 
 interface WeeklyData {
@@ -225,7 +226,8 @@ export function XiaowangTestWeeklyCostAnalysis({
   brokerData = [],
   title = "Weekly Views/Likes/Followers/Leads & Cost Trend Analysis",
   selectedMetric: propSelectedMetric,
-  onMetricChange
+  onMetricChange,
+  weeklyTimePeriod = 12
 }: XiaowangTestWeeklyCostAnalysisProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(propSelectedMetric || 'views')
 
@@ -247,7 +249,7 @@ export function XiaowangTestWeeklyCostAnalysis({
     return processXiaowangTestWeeklyData(xiaowangTestData, brokerData)
   }, [xiaowangTestData, brokerData])
 
-  // Filter out incomplete weeks (current week if not finished)
+  // Filter out incomplete weeks (current week if not finished) and apply time period filter
   const displayData = useMemo(() => {
     if (!weeklyData || weeklyData.length === 0) return []
 
@@ -257,23 +259,6 @@ export function XiaowangTestWeeklyCostAnalysis({
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
     currentWeekStart.setDate(today.getDate() - mondayOffset)
     currentWeekStart.setHours(0, 0, 0, 0)
-
-    console.log('🔍 Weekly filter debug:', {
-      today: today.toISOString().split('T')[0],
-      todayLocalString: today.toLocaleDateString(),
-      dayOfWeek: dayOfWeek,
-      dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
-      currentWeekStart: currentWeekStart.toISOString().split('T')[0],
-      totalWeeks: weeklyData.length
-    })
-
-    // Show all weeks to understand the data structure
-    console.log('📅 All weeks data:', weeklyData.map(item => ({
-      week: item.week,
-      weekStart: item.weekStart,
-      weekEnd: item.weekEnd,
-      isSeptember: item.week.includes('Sep') || item.week.includes('14') || item.week.includes('15')
-    })))
 
     // Filter out the current week if it's not complete (today is not Sunday)
     const filtered = weeklyData.filter(item => {
@@ -286,45 +271,39 @@ export function XiaowangTestWeeklyCostAnalysis({
       // If it's the current week and today is not Sunday (week not complete), exclude it
       const shouldInclude = !isCurrentWeek || dayOfWeek === 0
 
-      // Log all September weeks and week containing 14-20
-      if (item.week.includes('Sep') || item.week.includes('14') || item.week.includes('15') || item.week.includes('16') || item.week.includes('20')) {
-        console.log('🔍 Week filter detail:', {
-          week: item.week,
-          weekStart: item.weekStart,
-          weekEnd: item.weekEnd,
-          weekStartDate: weekStartDate.toISOString().split('T')[0],
-          weekEndDate: weekEndDate.toISOString().split('T')[0],
-          today: today.toISOString().split('T')[0],
-          isCurrentWeek,
-          isBeforeCurrentWeek: weekStartDate.getTime() < currentWeekStart.getTime(),
-          isSunday: dayOfWeek === 0,
-          shouldInclude
-        })
-      }
-
       return shouldInclude
     })
 
-    console.log('✅ Filtered result:', filtered.length, 'out of', weeklyData.length)
-    console.log('🗓️ Filtered weeks:', filtered.slice(-5).map(item => item.week))
+    // Apply time period filter based on weeklyTimePeriod prop
+    const weeksToShow = weeklyTimePeriod || 12
 
-    // Show only the last 12 weeks by default
-    const last12Weeks = filtered.slice(-12)
-    console.log('📊 Showing last 12 weeks:', last12Weeks.map(item => item.week))
-    return last12Weeks
-  }, [weeklyData])
+    // Get the last N weeks based on the selected period
+    const displayWeeks = filtered.slice(-weeksToShow)
 
-  // Calculate dynamic scales
-  const { metricScale, costScale } = useMemo(() => {
+    return displayWeeks
+  }, [weeklyData, weeklyTimePeriod])
+
+  // Calculate dynamic scales and averages directly from raw data
+  const { metricScale, costScale, avgMetric, avgCost } = useMemo(() => {
     if (!displayData || displayData.length === 0) {
       return {
         metricScale: { domain: [0, 100], ticks: [0, 25, 50, 75, 100] },
-        costScale: { domain: [0, 1000], ticks: [0, 250, 500, 750, 1000] }
+        costScale: { domain: [0, 1000], ticks: [0, 250, 500, 750, 1000] },
+        avgMetric: 0,
+        avgCost: 0
       }
     }
 
+    // Calculate weekly averages from the processed weekly data
     const metricValues = displayData.map(item => item[selectedMetric])
     const costValues = displayData.map(item => item.cost)
+
+    // Calculate averages for weekly data - SUM(Cost)/number of weeks and SUM(xxx)/number of weeks
+    const totalCost = costValues.reduce((sum, val) => sum + val, 0)
+    const totalMetric = metricValues.reduce((sum, val) => sum + val, 0)
+    const numberOfWeeks = displayData.length
+    const avgCost = numberOfWeeks > 0 ? totalCost / numberOfWeeks : 0
+    const avgMetric = numberOfWeeks > 0 ? totalMetric / numberOfWeeks : 0
 
     const maxMetric = Math.max(...metricValues, 1)
     const maxCost = Math.max(...costValues, 1)
@@ -344,7 +323,9 @@ export function XiaowangTestWeeklyCostAnalysis({
       costScale: {
         domain: [0, costMax],
         ticks: [0, costStep, costStep * 2, costStep * 3, costMax]
-      }
+      },
+      avgMetric,
+      avgCost
     }
   }, [displayData, selectedMetric])
 
@@ -470,6 +451,28 @@ export function XiaowangTestWeeklyCostAnalysis({
               <Tooltip content={<CustomTooltip />} />
               <Legend />
 
+              {/* Average Cost Reference Line */}
+              {avgCost > 0 && (
+                <ReferenceLine
+                  yAxisId="cost"
+                  y={avgCost}
+                  stroke="#C4A5E7"
+                  strokeWidth={2}
+                  strokeDasharray="8 8"
+                />
+              )}
+
+              {/* Average Metric Reference Line */}
+              {avgMetric > 0 && (
+                <ReferenceLine
+                  yAxisId="metric"
+                  y={avgMetric}
+                  stroke={`${metricConfig.color}80`}
+                  strokeWidth={2}
+                  strokeDasharray="8 8"
+                />
+              )}
+
               {/* Main Metric Line */}
               <Line
                 yAxisId="metric"
@@ -478,7 +481,7 @@ export function XiaowangTestWeeklyCostAnalysis({
                 stroke={metricConfig.color}
                 strokeWidth={3}
                 dot={{ fill: metricConfig.color, r: 5 }}
-                name={metricConfig.label}
+                name={`${metricConfig.label} (Avg: ${avgMetric >= 1000 ? `${(avgMetric/1000).toFixed(2)}K` : avgMetric.toFixed(2)})`}
                 connectNulls={false}
               />
 
@@ -490,7 +493,7 @@ export function XiaowangTestWeeklyCostAnalysis({
                 stroke="#751FAE"
                 strokeWidth={3}
                 dot={{ fill: "#751FAE", r: 5 }}
-                name="Cost ($)"
+                name={`Cost (Avg: $${avgCost.toFixed(2)})`}
                 connectNulls={false}
               />
 

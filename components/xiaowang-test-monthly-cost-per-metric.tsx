@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -251,26 +251,109 @@ export function XiaowangTestMonthlyCostPerMetric({
     return processXiaowangTestMonthlyCostData(xiaowangTestData, brokerData)
   }, [xiaowangTestData, brokerData])
 
-  // Calculate dynamic scales
-  const metricScale = useMemo(() => {
+  // Calculate dynamic scales and average directly from raw data
+  const { metricScale, average } = useMemo(() => {
     if (!monthlyData || monthlyData.length === 0) {
-      return { domain: [0, 10], ticks: [0, 2.5, 5, 7.5, 10] }
+      return {
+        metricScale: { domain: [0, 10], ticks: [0, 2.5, 5, 7.5, 10] },
+        average: 0
+      }
     }
 
+    // Calculate average as SUM(Cost)/SUM(Metric) from filtered time period
+    // Get the date range from the filtered monthly data
+    const monthStartDates = monthlyData.map(item => item.monthKey + '-01')
+    const monthEndDates = monthlyData.map(item => {
+      const [year, month] = item.monthKey.split('-')
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate()
+      return `${item.monthKey}-${lastDay.toString().padStart(2, '0')}`
+    })
+    const earliestDate = Math.min(...monthStartDates.map(d => new Date(d).getTime()))
+    const latestDate = Math.max(...monthEndDates.map(d => new Date(d).getTime()))
+
+    const filteredDailyData = xiaowangTestData?.dailyData?.filter((item: any) => {
+      const itemDate = new Date(item.date).getTime()
+      return itemDate >= earliestDate && itemDate <= latestDate
+    }) || []
+
+    const totalCost = filteredDailyData.reduce((sum, item) => sum + (item.cost || 0), 0)
+    let totalMetric = 0
+
+    switch (selectedMetric) {
+      case 'costPerView':
+        totalMetric = filteredDailyData.reduce((sum, item) => sum + (item.clicks || 0), 0)
+        break
+      case 'costPerLike':
+        totalMetric = filteredDailyData.reduce((sum, item) => sum + (item.likes || 0), 0)
+        break
+      case 'costPerFollower':
+        totalMetric = filteredDailyData.reduce((sum, item) => sum + (item.followers || 0), 0)
+        break
+      case 'costPerLead':
+        // For leads, we need to calculate from brokerData for the filtered period
+        const leadsPerDate: Record<string, number> = {}
+        if (brokerData && brokerData.length > 0) {
+          const uniqueClientsByDate: Record<string, Set<any>> = {}
+          brokerData.forEach((item) => {
+            const dateField = item.date || item['日期'] || item.Date || item.时间
+            if (dateField && item.no !== null && item.no !== undefined) {
+              let date: string
+              if (typeof dateField === 'number') {
+                const excelDate = new Date((dateField - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (typeof dateField === 'string' && /^\d+$/.test(dateField)) {
+                const excelSerialNumber = parseInt(dateField)
+                const excelDate = new Date((excelSerialNumber - 25569) * 86400 * 1000)
+                date = excelDate.toISOString().split('T')[0]
+              } else if (dateField instanceof Date) {
+                date = dateField.toISOString().split('T')[0]
+              } else {
+                date = String(dateField).split(' ')[0]
+              }
+              if (date && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                if (!uniqueClientsByDate[date]) {
+                  uniqueClientsByDate[date] = new Set()
+                }
+                uniqueClientsByDate[date].add(item.no)
+              }
+            }
+          })
+          Object.keys(uniqueClientsByDate).forEach(date => {
+            leadsPerDate[date] = uniqueClientsByDate[date].size
+          })
+        }
+        totalMetric = filteredDailyData.reduce((sum, item) => sum + (leadsPerDate[item.date] || 0), 0)
+        break
+      default:
+        totalMetric = 0
+    }
+
+    const average = totalMetric > 0 ? totalCost / totalMetric : 0
+
+    // For scale calculation, still use processed monthlyData
     const values = monthlyData.map(item => item[metricConfig.dataKey]).filter(v => v > 0)
     if (values.length === 0) {
-      return { domain: [0, 10], ticks: [0, 2.5, 5, 7.5, 10] }
+      return {
+        metricScale: { domain: [0, Math.max(10, average * 1.2)], ticks: [0, 2.5, 5, 7.5, 10] },
+        average
+      }
     }
+
+    // Include average in scale calculation
+    if (average > 0) values.push(average)
 
     const maxValue = Math.max(...values)
     const roundedMax = Math.ceil(maxValue * 1.2)
     const step = roundedMax / 4
 
     return {
-      domain: [0, roundedMax],
-      ticks: [0, step, step * 2, step * 3, roundedMax].map(v => Math.round(v * 100) / 100)
+      metricScale: {
+        domain: [0, roundedMax],
+        ticks: [0, step, step * 2, step * 3, roundedMax].map(v => Math.round(v * 100) / 100)
+      },
+      average
     }
-  }, [monthlyData, metricConfig.dataKey])
+  }, [monthlyData, metricConfig.dataKey, xiaowangTestData, brokerData, selectedMetric])
 
   if (!monthlyData || monthlyData.length === 0) {
     return (
@@ -379,6 +462,16 @@ export function XiaowangTestMonthlyCostPerMetric({
               <Tooltip content={<CustomTooltip />} />
               <Legend />
 
+              {/* Average Reference Line */}
+              {average > 0 && (
+                <ReferenceLine
+                  y={average}
+                  stroke={`${metricConfig.color}80`}
+                  strokeWidth={2}
+                  strokeDasharray="8 8"
+                />
+              )}
+
               {/* Main Cost Per Metric Line */}
               <Line
                 type="monotone"
@@ -386,7 +479,7 @@ export function XiaowangTestMonthlyCostPerMetric({
                 stroke={metricConfig.color}
                 strokeWidth={3}
                 dot={{ fill: metricConfig.color, r: 5 }}
-                name={metricConfig.label}
+                name={`${metricConfig.label} (Avg: $${average.toFixed(2)})`}
                 connectNulls={false}
               />
 

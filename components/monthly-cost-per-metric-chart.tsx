@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
@@ -194,18 +194,51 @@ export function MonthlyCostPerMetricChart({
     return processMonthlyData(data)
   }, [data])
 
-  // Calculate dynamic scale for selected metric
-  const metricScale = useMemo(() => {
-    if (!chartData || chartData.length === 0) {
-      return { domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1] }
+  // Calculate dynamic scale and average directly from raw data
+  const { metricScale, average } = useMemo(() => {
+    if (!data || data.length === 0) {
+      return {
+        metricScale: { domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1] },
+        average: 0
+      }
     }
-    
+
+    // Calculate average as SUM(Cost)/SUM(Metric) from all data
+    const totalCost = data.reduce((sum, item) => sum + item.spend, 0)
+    let totalMetric = 0
+
+    switch (selectedMetric) {
+      case 'costPerClick':
+        totalMetric = data.reduce((sum, item) => sum + item.clicks, 0)
+        break
+      case 'costPerLike':
+        totalMetric = data.reduce((sum, item) => sum + item.likes, 0)
+        break
+      case 'costPerFollower':
+        totalMetric = data.reduce((sum, item) => sum + item.followers, 0)
+        break
+    }
+
+    const average = totalMetric > 0 ? totalCost / totalMetric : 0
+
+    // For scale calculation, still use processed chartData but include raw average
+    if (!chartData || chartData.length === 0) {
+      return {
+        metricScale: { domain: [0, Math.max(1, average * 1.2)], ticks: [0, 0.25, 0.5, 0.75, 1] },
+        average
+      }
+    }
+
     const metricValues = chartData.map(d => d[selectedMetric]).filter(v => v > 0)
+    if (average > 0) metricValues.push(average)
     const minMetric = metricValues.length > 0 ? Math.min(...metricValues) : 0
     const maxMetric = metricValues.length > 0 ? Math.max(...metricValues) : 1
-    
-    return calculateNiceScale(minMetric, maxMetric, 5)
-  }, [chartData, selectedMetric])
+
+    return {
+      metricScale: calculateNiceScale(minMetric, maxMetric, 5),
+      average
+    }
+  }, [data, chartData, selectedMetric])
 
   // Format month display
   const formatMonth = (monthStr: string) => {
@@ -217,8 +250,17 @@ export function MonthlyCostPerMetricChart({
   // Custom tick component for X-axis with Posts count
   const CustomTick = (props: any) => {
     const { x, y, payload } = props
-    const monthStr = payload.value
-    const postsCount = notesMonthlyCount && notesMonthlyCount[monthStr] ? notesMonthlyCount[monthStr] : 0
+    const monthStr = payload.value // Format: "2024-09"
+
+    // Convert monthStr format "2024-09" to match notesMonthlyCount key format "Sep 2024"
+    const convertToNotesKey = (monthStr: string) => {
+      const [year, month] = monthStr.split('-')
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      return `${monthNames[parseInt(month) - 1]} ${year}`
+    }
+
+    const notesKey = convertToNotesKey(monthStr)
+    const postsCount = notesMonthlyCount && notesMonthlyCount[notesKey] ? notesMonthlyCount[notesKey] : 0
     
     return (
       <g transform={`translate(${x},${y})`}>
@@ -356,6 +398,16 @@ export function MonthlyCostPerMetricChart({
               
               <Tooltip content={<CustomTooltip />} />
               <Legend />
+
+              {/* Average Reference Line */}
+              {average > 0 && (
+                <ReferenceLine
+                  y={average}
+                  stroke={`${currentMetricInfo.color}80`}
+                  strokeWidth={2}
+                  strokeDasharray="8 8"
+                />
+              )}
               
               {/* Selected Metric Line */}
               <Line
@@ -364,7 +416,7 @@ export function MonthlyCostPerMetricChart({
                 stroke={currentMetricInfo.color}
                 strokeWidth={3}
                 dot={{ fill: currentMetricInfo.color, strokeWidth: 2, r: 4 }}
-                name={`${currentMetricInfo.label} ($)`}
+                name={`${currentMetricInfo.label} (Avg: $${average.toFixed(2)})`}
                 connectNulls={false}
               />
               

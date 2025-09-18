@@ -21,6 +21,8 @@ interface LifeCarMonthlySummaryProps {
 }
 
 export function LifeCarMonthlySummary({ data, dailyData = [], unfilteredDailyData, title = "Monthly Performance Summary", selectedDates = [], notesData = [] }: LifeCarMonthlySummaryProps) {
+  // Debug log to track posts data updates
+  console.log('LifeCarMonthlySummary received notesData:', notesData?.length || 0, 'posts')
 
   return (
     <div className="space-y-6">
@@ -28,6 +30,7 @@ export function LifeCarMonthlySummary({ data, dailyData = [], unfilteredDailyDat
       {unfilteredDailyData && unfilteredDailyData.length > 0 && (
         <>
           <DualAxisRollingAverageChart
+            key={`chart-${notesData?.length || 0}`}
             data={unfilteredDailyData}
             title="7-Day Rolling Average Analysis: Cost & Views"
             selectedDates={selectedDates}

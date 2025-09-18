@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useCallback, useState } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LifeCarDailyData } from "@/lib/lifecar-data-processor"
@@ -317,14 +317,41 @@ export function CostPerFollowerDailyChart({
     if (!chartData || chartData.length === 0) {
       return { domain: [0, 1], ticks: [0, 0.25, 0.5, 0.75, 1] }
     }
-    
+
     // Find min and max for selected metric
     const metricValues = chartData.map(d => d[selectedMetric]).filter(v => v > 0)
     const minMetric = metricValues.length > 0 ? Math.min(...metricValues) : 0
     const maxMetric = metricValues.length > 0 ? Math.max(...metricValues) : 1
-    
+
     return calculateNiceScale(minMetric, maxMetric, 5)
   }, [chartData, selectedMetric])
+
+  // Calculate averages as SUM(Cost)/SUM(Metric) from filtered time period
+  const averages = useMemo(() => {
+    if (!activeData || activeData.length === 0) {
+      return { avgMetric: 0 }
+    }
+
+    // Calculate total cost and total metric from raw data
+    const totalCost = activeData.reduce((sum, item) => sum + item.spend, 0)
+    let totalMetric = 0
+
+    switch (selectedMetric) {
+      case 'costPerClick':
+        totalMetric = activeData.reduce((sum, item) => sum + item.clicks, 0)
+        break
+      case 'costPerLike':
+        totalMetric = activeData.reduce((sum, item) => sum + item.likes, 0)
+        break
+      case 'costPerFollower':
+        totalMetric = activeData.reduce((sum, item) => sum + item.followers, 0)
+        break
+    }
+
+    const avgMetric = totalMetric > 0 ? totalCost / totalMetric : 0
+
+    return { avgMetric }
+  }, [activeData, selectedMetric])
 
   // Format date display
   const formatDate = (dateStr: string) => {
@@ -556,8 +583,26 @@ export function CostPerFollowerDailyChart({
               />
               
               <Tooltip content={<CustomTooltip />} />
-              <Legend />
+              <Legend
+                payload={[
+                  {
+                    value: `${currentMetricInfo.label} (Avg: $${averages.avgMetric.toFixed(2)})`,
+                    type: 'line',
+                    color: currentMetricInfo.color
+                  }
+                ]}
+              />
               
+              {/* Average Reference Line */}
+              {averages.avgMetric > 0 && (
+                <ReferenceLine
+                  y={averages.avgMetric}
+                  stroke={`${currentMetricInfo.color}80`}
+                  strokeWidth={2}
+                  strokeDasharray="8 8"
+                />
+              )}
+
               {/* Selected Metric Line */}
               <Line
                 type="monotone"
@@ -566,7 +611,7 @@ export function CostPerFollowerDailyChart({
                 strokeWidth={3}
                 dot={(props: any) => {
                   const isSelected = selectedDates.length > 0 && props.payload && selectedDates.includes(props.payload.date)
-                  
+
                   return (
                     <g>
                       {/* Normal dot - same format as other lines */}
@@ -593,7 +638,7 @@ export function CostPerFollowerDailyChart({
                     </g>
                   )
                 }}
-                name={`${currentMetricInfo.label} ($)`}
+                name={`${currentMetricInfo.label} (Avg: $${averages.avgMetric.toFixed(2)})`}
                 connectNulls={false}
               />
               

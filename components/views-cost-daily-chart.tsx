@@ -450,15 +450,43 @@ export function ViewsCostDailyChart({
     }
   }, [activeData, isSevenDayRange, isFiltered])
 
-  // Calculate average cost per day from currently active data (changes with filter toggle)
+  // Calculate average cost per day directly from original raw data (changes with filter toggle)
   const avgCostPerDay = useMemo(() => {
     if (!activeData || activeData.length === 0) return 0
     const totalCost = activeData.reduce((sum, item) => sum + item.spend, 0)
     const totalDays = activeData.length
     const avgDaily = totalDays > 0 ? totalCost / totalDays : 0
-    
+
+    // Return raw average (will be formatted with 2 decimal places in legend)
     return avgDaily
   }, [activeData, isFiltered])
+
+  // Calculate average metric per day directly from original raw data (without rounding)
+  const avgMetricPerDay = useMemo(() => {
+    if (!activeData || activeData.length === 0) return 0
+    let totalMetric = 0
+
+    // Map the dataKey to the correct field in LifeCarDailyData and calculate from raw data
+    switch (metricConfig.dataKey) {
+      case 'views':
+        totalMetric = activeData.reduce((sum, item) => sum + item.clicks, 0)
+        break
+      case 'likes':
+        totalMetric = activeData.reduce((sum, item) => sum + item.likes, 0)
+        break
+      case 'followers':
+        totalMetric = activeData.reduce((sum, item) => sum + item.followers, 0)
+        break
+      default:
+        totalMetric = 0
+    }
+
+    const totalDays = activeData.length
+    const avgDaily = totalDays > 0 ? totalMetric / totalDays : 0
+
+    // Return raw average (will be formatted with 2 decimal places in legend)
+    return avgDaily
+  }, [activeData, isFiltered, metricConfig.dataKey])
 
 
   // Calculate dynamic scales for both axes
@@ -470,11 +498,12 @@ export function ViewsCostDailyChart({
       }
     }
     
-    // Find min and max for selected metric
+    // Find min and max for selected metric - include avgMetricPerDay in the range calculation
     const metricValues = chartData.map(d => d[metricConfig.dataKey]).filter(v => v > 0)
+    if (avgMetricPerDay > 0) metricValues.push(avgMetricPerDay)
     const minMetric = metricValues.length > 0 ? Math.min(...metricValues) : 0
     const maxMetric = metricValues.length > 0 ? Math.max(...metricValues) : 100
-    
+
     // Find min and max for cost - include avgCostPerDay in the range calculation
     const costValues = chartData.map(d => d.cost).filter(v => v > 0)
     if (avgCostPerDay > 0) costValues.push(avgCostPerDay)
@@ -485,7 +514,7 @@ export function ViewsCostDailyChart({
       metricScale: calculateNiceScale(minMetric, maxMetric, 5),
       costScale: calculateNiceScale(minCost, maxCost, 5)
     }
-  }, [chartData, metricConfig.dataKey, avgCostPerDay])
+  }, [chartData, metricConfig.dataKey, avgCostPerDay, avgMetricPerDay])
 
   // Format date display
   const formatDate = (dateStr: string) => {
@@ -724,33 +753,30 @@ export function ViewsCostDailyChart({
               <Tooltip content={<CustomTooltip />} />
               <Legend />
               
-              {/* Average Cost per Day Reference Line - Orange dashed line */}
+              {/* Average Cost per Day Reference Line - Purple dashed line */}
               {avgCostPerDay > 0 && (
-                <ReferenceLine 
+                <ReferenceLine
                   key={`avg-cost-${avgCostPerDay}-${isFiltered}`}
                   yAxisId="cost"
-                  y={avgCostPerDay} 
-                  stroke="#FF8C00" 
+                  y={avgCostPerDay}
+                  stroke="#C4A5E7"
+                  strokeDasharray="8 4"
+                  strokeWidth={2}
+                />
+              )}
+
+              {/* Average Metric per Day Reference Line - lighter version of metric color */}
+              {avgMetricPerDay > 0 && (
+                <ReferenceLine
+                  key={`avg-metric-${avgMetricPerDay}-${isFiltered}`}
+                  yAxisId="metric"
+                  y={avgMetricPerDay}
+                  stroke={`${metricConfig.color}80`}
                   strokeDasharray="8 4"
                   strokeWidth={2}
                 />
               )}
               
-              {/* Invisible Line for Legend display only - placed last to appear last in legend */}
-              {avgCostPerDay > 0 && (
-                <Line
-                  yAxisId="cost"
-                  type="monotone"
-                  dataKey={() => null}
-                  stroke="#FF8C00"
-                  strokeDasharray="8 4"
-                  strokeWidth={2}
-                  dot={false}
-                  name={`Average Cost per Day: $${avgCostPerDay.toFixed(0)}`}
-                  connectNulls={false}
-                  legendType="line"
-                />
-              )}
               
               {/* Cost Line - Left axis */}
               <Line
@@ -788,7 +814,7 @@ export function ViewsCostDailyChart({
                     </g>
                   )
                 }}
-                name="Cost ($)"
+                name={`Cost (Avg: $${avgCostPerDay.toFixed(2)})`}
                 connectNulls={false}
               />
               
@@ -800,7 +826,7 @@ export function ViewsCostDailyChart({
                 stroke={metricConfig.color}
                 strokeWidth={3}
                 dot={{ fill: metricConfig.color, strokeWidth: 2, r: 4 }}
-                name={metricConfig.name}
+                name={`${metricConfig.name} (Avg: ${avgMetricPerDay >= 1000 ? `${(avgMetricPerDay/1000).toFixed(2)}K` : avgMetricPerDay.toFixed(2)})`}
                 connectNulls={false}
               />
               
