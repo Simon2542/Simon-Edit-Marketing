@@ -30,6 +30,7 @@ import { MonthlyViewsCostChart } from "@/components/monthly-views-cost-chart"
 import { MonthlyCostPerMetricChart } from "@/components/monthly-cost-per-metric-chart"
 import { parseLifeCarData, aggregateByMonth, filterByDateRange, type LifeCarDailyData, type LifeCarMonthlyData } from "@/lib/lifecar-data-processor"
 import { LifeCarNotesModal } from "@/components/lifecar-notes-modal"
+import { XiaoWangTestNotesModal } from "@/components/xiaowang-test-notes-modal"
 import { XiaowangUpload } from "@/components/xiaowang-upload"
 import { XiaowangDualUpload } from "@/components/xiaowang-dual-upload"
 import { XiaowangTestCostAnalysis } from "@/components/xiaowang-test-cost-analysis"
@@ -475,6 +476,20 @@ export default function Home() {
   const [selectedNoteDates, setSelectedNoteDates] = useState<string[]>([]);
   const [lifeCarNotesData, setLifeCarNotesData] = useState<any[]>([]);
 
+  // XiaoWang Test 笔记浮窗状态
+  const [showXiaowangNotesModal, setShowXiaowangNotesModal] = useState(false);
+  const [selectedXiaowangNoteDates, setSelectedXiaowangNoteDates] = useState<string[]>([]);
+  const [xiaowangTestNotesData, setXiaowangTestNotesData] = useState<any[]>([]);
+
+  // XiaoWang Test Notes按星期几的统计
+  const [xiaowangNotesWeekdayCount, setXiaowangNotesWeekdayCount] = useState<{[key: string]: number}>({});
+
+  // XiaoWang Test Notes按周的统计
+  const [xiaowangNotesWeeklyCount, setXiaowangNotesWeeklyCount] = useState<{[key: string]: number}>({});
+
+  // XiaoWang Test Notes按月的统计
+  const [xiaowangNotesMonthlyCount, setXiaowangNotesMonthlyCount] = useState<{[key: string]: number}>({});
+
   // 检查是否选择了一周时间范围
   const isOneWeekSelected = useMemo(() => {
     if (!startDate || !endDate) return false;
@@ -511,6 +526,12 @@ export default function Home() {
     // 不清空数据，保持在浏览器会话期间可用
   };
 
+  // 当XiaoWang Test Notes Modal关闭时保持数据（只在浏览器会话期间保留）
+  const handleXiaowangNotesModalClose = () => {
+    setShowXiaowangNotesModal(false);
+    // 不清空数据，保持在浏览器会话期间可用
+  };
+
   // 计算Notes按星期几的统计（基于前端数据）
   const calculateNotesWeekdayCount = (notesData: any[]) => {
     if (!lifeCarData.length || !notesData.length) {
@@ -540,6 +561,136 @@ export default function Home() {
     });
 
     setNotesWeekdayCount(weekdayCount);
+  };
+
+  // 计算XiaoWang Test Notes按星期几的统计（基于小王测试数据日期范围）
+  const calculateXiaowangNotesWeekdayCount = (notesData: any[]) => {
+    if (!xiaowangTestData?.rawData?.length || !notesData.length) {
+      setXiaowangNotesWeekdayCount({});
+      return;
+    }
+
+    const weekdayCount: {[key: string]: number} = {
+      'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0
+    };
+
+    // 获取小王测试数据的日期范围
+    const campaignDates = xiaowangTestData.rawData.map((d: any) => d.date);
+    const minDate = Math.min(...campaignDates.map((d: string) => new Date(d).getTime()));
+    const maxDate = Math.max(...campaignDates.map((d: string) => new Date(d).getTime()));
+
+    notesData.forEach((note: any) => {
+      const dateStr = note.发布时间?.split(' ')[0];
+      if (dateStr) {
+        const noteTime = new Date(dateStr).getTime();
+        if (noteTime >= minDate && noteTime <= maxDate) {
+          const date = new Date(dateStr);
+          const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+          weekdayCount[dayOfWeek] = (weekdayCount[dayOfWeek] || 0) + 1;
+        }
+      }
+    });
+
+    setXiaowangNotesWeekdayCount(weekdayCount);
+  };
+
+  // 计算XiaoWang Test Notes按周的统计（基于小王测试数据日期范围）
+  const calculateXiaowangNotesWeeklyCount = (notesData: any[]) => {
+    if (!xiaowangTestData?.rawData?.length || !notesData.length) {
+      setXiaowangNotesWeeklyCount({});
+      return;
+    }
+
+    // 使用与Weekly组件完全相同的数据处理逻辑
+    // 首先创建weeklyMap，就像Weekly组件一样
+    const weeklyMap: Record<string, any> = {};
+
+    // 处理每个笔记，使用与processXiaowangTestWeeklyData相同的逻辑
+    notesData.forEach((note: any) => {
+      const dateStr = note.发布时间?.split(' ')[0];
+      if (!dateStr) return;
+
+      // 检查日期是否在小王测试数据范围内
+      const campaignDates = xiaowangTestData.rawData.map((d: any) => d.date);
+      const minDate = Math.min(...campaignDates.map((d: string) => new Date(d).getTime()));
+      const maxDate = Math.max(...campaignDates.map((d: string) => new Date(d).getTime()));
+
+      const noteTime = new Date(dateStr).getTime();
+      if (noteTime < minDate || noteTime > maxDate) return;
+
+      // 使用与Weekly组件完全相同的周计算逻辑
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return;
+
+      // Get the start of the week (Monday) - 完全复制Weekly组件的逻辑
+      const dayOfWeek = date.getDay();
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday = 0, so we need to go back 6 days
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+
+      // Get the end of the week (Sunday)
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      const weekKey = weekStart.toISOString().split('T')[0]; // 使用ISO格式作为key，就像Weekly组件
+
+      if (!weeklyMap[weekKey]) {
+        weeklyMap[weekKey] = {
+          weekStart: weekStart.toISOString().split('T')[0],
+          weekEnd: weekEnd.toISOString().split('T')[0],
+          notesCount: 0
+        };
+      }
+
+      weeklyMap[weekKey].notesCount += 1;
+    });
+
+    // 转换为最终格式，使用与Weekly组件相同的格式化逻辑
+    const weeklyCount: {[key: string]: number} = {};
+    Object.entries(weeklyMap).forEach(([weekKey, data]) => {
+      // 使用与Weekly组件line 129完全相同的格式化
+      const formattedWeekKey = `${new Date(data.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(data.weekEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      weeklyCount[formattedWeekKey] = data.notesCount;
+    });
+
+    console.log('Final weekly count result (NEW LOGIC):', {
+      weeklyCount,
+      weekKeys: Object.keys(weeklyCount),
+      totalWeeks: Object.keys(weeklyCount).length
+    });
+
+    setXiaowangNotesWeeklyCount(weeklyCount);
+  };
+
+  // 计算XiaoWang Test Notes按月的统计（基于小王测试数据日期范围）
+  const calculateXiaowangNotesMonthlyCount = (notesData: any[]) => {
+    if (!xiaowangTestData?.rawData?.length || !notesData.length) {
+      setXiaowangNotesMonthlyCount({});
+      return;
+    }
+
+    const monthlyCount: {[key: string]: number} = {};
+
+    // 获取小王测试数据的日期范围
+    const campaignDates = xiaowangTestData.rawData.map((d: any) => d.date);
+    const minDate = Math.min(...campaignDates.map((d: string) => new Date(d).getTime()));
+    const maxDate = Math.max(...campaignDates.map((d: string) => new Date(d).getTime()));
+
+    notesData.forEach((note: any) => {
+      const dateStr = note.发布时间?.split(' ')[0];
+      if (dateStr) {
+        const noteTime = new Date(dateStr).getTime();
+        if (noteTime >= minDate && noteTime <= maxDate) {
+          const date = new Date(dateStr);
+          // 使用与Monthly组件相同的格式：year: 'numeric', month: 'short'
+          const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+          monthlyCount[monthKey] = (monthlyCount[monthKey] || 0) + 1;
+        }
+      }
+    });
+
+    setXiaowangNotesMonthlyCount(monthlyCount);
   };
 
   // 计算Notes按月份的统计（基于前端数据）
@@ -584,6 +735,27 @@ export default function Home() {
       setNotesMonthlyCount({});
     }
   }, [lifeCarNotesData, lifeCarData]);
+
+  // 当XiaoWang Test Notes数据或投放数据更新时，重新计算统计
+  useEffect(() => {
+    console.log('XiaowangTestNotes useEffect triggered:', {
+      xiaowangTestNotesDataLength: xiaowangTestNotesData.length,
+      hasXiaowangRawData: !!xiaowangTestData?.rawData?.length,
+      xiaowangRawDataLength: xiaowangTestData?.rawData?.length || 0
+    });
+
+    if (xiaowangTestNotesData.length > 0 && xiaowangTestData?.rawData?.length > 0) {
+      console.log('Calling calculation functions...');
+      calculateXiaowangNotesWeekdayCount(xiaowangTestNotesData);
+      calculateXiaowangNotesWeeklyCount(xiaowangTestNotesData);
+      calculateXiaowangNotesMonthlyCount(xiaowangTestNotesData);
+    } else {
+      console.log('Clearing counts due to missing data');
+      setXiaowangNotesWeekdayCount({});
+      setXiaowangNotesWeeklyCount({});
+      setXiaowangNotesMonthlyCount({});
+    }
+  }, [xiaowangTestNotesData, xiaowangTestData]);
 
   // Notes按月份的统计
   const [notesMonthlyCount, setNotesMonthlyCount] = useState<{[key: string]: number}>({});
@@ -1180,10 +1352,20 @@ export default function Home() {
               <p className="text-base text-purple-600 mt-1 font-montserrat font-light">Real-time analytics & insights</p>
             </div>
             <div className="ml-auto flex items-center space-x-3 z-50 relative">
-              <AccountSwitcher 
-                onAccountChange={handleAccountChange} 
-                defaultAccount={selectedAccount} 
+              <AccountSwitcher
+                onAccountChange={handleAccountChange}
+                defaultAccount={selectedAccount}
               />
+              <button
+                onClick={() => window.location.href = '/information-hub'}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#751FAE] to-[#EF3C99] rounded-lg hover:from-[#6919A6] hover:to-[#E73691] transition-all duration-200 shadow-md"
+                title="Information Hub"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Information Hub
+              </button>
               <button
                 onClick={handleFullscreen}
                 className="flex items-center justify-center w-8 h-8 text-gray-700 bg-white/90 backdrop-blur-sm border border-purple-200 rounded hover:border-purple-300 hover:bg-purple-50 transition-all duration-200 shadow-sm cursor-pointer z-50 relative"
@@ -2998,6 +3180,8 @@ export default function Home() {
                           onMetricChange={setXiaowangSelectedMetric}
                           isFiltered={xiaowangChartFiltered}
                           onFilterChange={setXiaowangChartFiltered}
+                          notesData={xiaowangTestNotesData}
+                          notesWeekdayCount={xiaowangNotesWeekdayCount}
                         />
 
                         <div className="mt-8">
@@ -3010,6 +3194,8 @@ export default function Home() {
                             onMetricChange={setXiaowangSelectedMetric}
                             isFiltered={xiaowangChartFiltered}
                             onFilterChange={setXiaowangChartFiltered}
+                            notesData={xiaowangTestNotesData}
+                            notesWeekdayCount={xiaowangNotesWeekdayCount}
                           />
                         </div>
                       </div>
@@ -3046,6 +3232,7 @@ export default function Home() {
                           selectedMetric={xiaowangSelectedMetric}
                           onMetricChange={setXiaowangSelectedMetric}
                           weeklyTimePeriod={weeklyTimePeriod}
+                          notesWeeklyCount={xiaowangNotesWeeklyCount}
                         />
 
                         <div className="mt-8">
@@ -3055,6 +3242,7 @@ export default function Home() {
                             selectedMetric={xiaowangSelectedMetric}
                             onMetricChange={setXiaowangSelectedMetric}
                             weeklyTimePeriod={weeklyTimePeriod}
+                            notesWeeklyCount={xiaowangNotesWeeklyCount}
                           />
                         </div>
                       </div>
@@ -3071,6 +3259,7 @@ export default function Home() {
                           brokerData={brokerDataJson}
                           selectedMetric={xiaowangSelectedMetric}
                           onMetricChange={setXiaowangSelectedMetric}
+                          notesMonthlyCount={xiaowangNotesMonthlyCount}
                         />
 
                         <div className="mt-8">
@@ -3079,6 +3268,7 @@ export default function Home() {
                             brokerData={brokerDataJson}
                             selectedMetric={xiaowangSelectedMetric}
                             onMetricChange={setXiaowangSelectedMetric}
+                            notesMonthlyCount={xiaowangNotesMonthlyCount}
                           />
                         </div>
                       </div>
@@ -3178,6 +3368,39 @@ export default function Home() {
               </>
             )}
 
+            {/* 浮动笔记按钮 - 只在小王测试账号且有数据时显示 */}
+            {selectedAccount === 'xiaowang-test' && !xiaowangTestLoading && filteredXiaowangTestData && (
+              <div className="fixed top-1/2 right-6 transform -translate-y-1/2 z-40 space-y-2">
+                <Button
+                  onClick={() => setShowXiaowangNotesModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 rounded-full px-4 py-3"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium">Posts</span>
+                </Button>
+                {selectedXiaowangNoteDates.length > 0 && (
+                  <Button
+                    onClick={() => setSelectedXiaowangNoteDates([])}
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/90 border-blue-200 text-blue-600 hover:bg-blue-50"
+                  >
+                    清除选中 ({selectedXiaowangNoteDates.length})
+                  </Button>
+                )}
+                {selectedXiaowangNoteDates.length > 0 && (
+                  <div className="text-xs text-gray-600 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md border border-blue-200/50 max-h-32 overflow-y-auto">
+                    <div className="font-medium text-blue-600 mb-1">选中的笔记日期:</div>
+                    {[...selectedXiaowangNoteDates].sort().map((date, index) => (
+                      <div key={index} className="text-gray-600 py-0.5">{date}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 无数据状态 - 提示用户上传数据 */}
             {!xiaowangTestLoading && !filteredXiaowangTestData && (
               <div className="max-w-7xl mx-auto flex items-center justify-center py-12">
@@ -3267,6 +3490,30 @@ export default function Home() {
           });
         }}
         selectedDates={selectedNoteDates}
+      />
+
+      {/* XiaoWang Test Notes Modal */}
+      <XiaoWangTestNotesModal
+        isOpen={showXiaowangNotesModal}
+        onClose={handleXiaowangNotesModalClose}
+        onDataUpdate={(data) => {
+          console.log('XiaoWang Test Posts data updated:', data.length, 'posts')
+          setXiaowangTestNotesData(data)
+        }}
+        initialData={xiaowangTestNotesData}
+        onDateSelect={(date) => {
+          setSelectedXiaowangNoteDates(prev => {
+            const chartDate = date.split(' ')[0]; // Extract date part
+            if (prev.includes(chartDate)) {
+              // Remove if already selected
+              return prev.filter(d => d !== chartDate);
+            } else {
+              // Add if not selected
+              return [...prev, chartDate];
+            }
+          });
+        }}
+        selectedDates={selectedXiaowangNoteDates}
       />
 
       {/* 小王测试数据上传模态框 */}

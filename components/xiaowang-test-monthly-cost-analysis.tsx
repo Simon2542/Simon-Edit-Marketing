@@ -11,6 +11,7 @@ interface XiaowangTestMonthlyCostAnalysisProps {
   title?: string
   selectedMetric?: MetricType
   onMetricChange?: (metric: MetricType) => void
+  notesMonthlyCount?: {[key: string]: number} // Notes count by month
 }
 
 interface MonthlyData {
@@ -261,7 +262,8 @@ export function XiaowangTestMonthlyCostAnalysis({
   brokerData = [],
   title = "Monthly Views/Likes/Followers/Leads & Cost Trend Analysis",
   selectedMetric: propSelectedMetric,
-  onMetricChange
+  onMetricChange,
+  notesMonthlyCount = {}
 }: XiaowangTestMonthlyCostAnalysisProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(propSelectedMetric || 'views')
 
@@ -421,13 +423,42 @@ export function XiaowangTestMonthlyCostAnalysis({
       <CardContent>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={monthlyData} margin={{ top: 60, right: 50, left: 50, bottom: 5 }}>
+            <LineChart data={monthlyData} margin={{ top: 40, right: 80, left: 40, bottom: 60 }}>
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                tick={(props: any) => {
+                  const { x, y, payload } = props
+                  const monthStr = payload.value
+
+                  // Count posts for this month
+                  const postsCount = notesMonthlyCount && notesMonthlyCount[monthStr] ? notesMonthlyCount[monthStr] : 0
+
+                  return (
+                    <g>
+                      <text
+                        x={x}
+                        y={y + 16}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="11"
+                        transform={`rotate(-45, ${x}, ${y + 16})`}
+                      >
+                        {monthStr}
+                      </text>
+                      <text
+                        x={x}
+                        y={y + 30}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="10"
+                        transform={`rotate(-45, ${x}, ${y + 30})`}
+                      >
+                        {postsCount} Posts
+                      </text>
+                    </g>
+                  )
+                }}
+                height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
               />

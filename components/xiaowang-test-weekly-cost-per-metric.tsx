@@ -12,6 +12,7 @@ interface XiaowangTestWeeklyCostPerMetricProps {
   selectedMetric?: 'views' | 'likes' | 'followers' | 'leads'
   onMetricChange?: (metric: 'views' | 'likes' | 'followers' | 'leads') => void
   weeklyTimePeriod?: number
+  notesWeeklyCount?: {[key: string]: number} // Notes count by week
 }
 
 interface WeeklyData {
@@ -205,7 +206,8 @@ export function XiaowangTestWeeklyCostPerMetric({
   title = "Weekly Cost Per Metric Analysis",
   selectedMetric: propSelectedMetric,
   onMetricChange,
-  weeklyTimePeriod = 12
+  weeklyTimePeriod = 12,
+  notesWeeklyCount = {}
 }: XiaowangTestWeeklyCostPerMetricProps) {
   // Map external metric to internal metric type
   const mapToInternalMetric = (metric: 'views' | 'likes' | 'followers' | 'leads'): MetricType => {
@@ -479,13 +481,42 @@ export function XiaowangTestWeeklyCostPerMetric({
       <CardContent>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={displayData} margin={{ top: 40, right: 50, left: 50, bottom: 5 }}>
+            <LineChart data={displayData} margin={{ top: 40, right: 80, left: 40, bottom: 60 }}>
               <XAxis
                 dataKey="week"
-                tick={{ fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                tick={(props: any) => {
+                  const { x, y, payload } = props
+                  const weekStr = payload.value
+
+                  // Count posts for this week
+                  const postsCount = notesWeeklyCount && notesWeeklyCount[weekStr] ? notesWeeklyCount[weekStr] : 0
+
+                  return (
+                    <g>
+                      <text
+                        x={x}
+                        y={y + 16}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="11"
+                        transform={`rotate(-45, ${x}, ${y + 16})`}
+                      >
+                        {weekStr}
+                      </text>
+                      <text
+                        x={x}
+                        y={y + 30}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="10"
+                        transform={`rotate(-45, ${x}, ${y + 30})`}
+                      >
+                        {postsCount} Posts
+                      </text>
+                    </g>
+                  )
+                }}
+                height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
               />

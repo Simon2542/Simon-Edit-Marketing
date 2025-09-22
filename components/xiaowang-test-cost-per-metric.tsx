@@ -15,6 +15,8 @@ interface XiaowangTestCostPerMetricProps {
   onMetricChange?: (metric: 'views' | 'likes' | 'followers' | 'leads') => void
   isFiltered?: boolean
   onFilterChange?: (filtered: boolean) => void
+  notesData?: any[] // Notes data for vertical line display
+  notesWeekdayCount?: {[key: string]: number} // Notes count by weekday
 }
 
 interface DailyData {
@@ -226,7 +228,9 @@ export function XiaowangTestCostPerMetric({
   selectedMetric: propSelectedMetric,
   onMetricChange,
   isFiltered: propIsFiltered,
-  onFilterChange
+  onFilterChange,
+  notesData = [],
+  notesWeekdayCount = {}
 }: XiaowangTestCostPerMetricProps) {
   // Map external metric to internal metric type
   const mapToInternalMetric = (metric: 'views' | 'likes' | 'followers' | 'leads'): MetricType => {
@@ -464,6 +468,19 @@ export function XiaowangTestCostPerMetric({
     return dateStr
   }
 
+  // Get posts for a specific date when in 7-day filtered mode
+  const getPostsForDate = (date: string) => {
+    if (!isSevenDayRange || !isFiltered || !notesData || notesData.length === 0) {
+      return []
+    }
+
+    return notesData.filter(note => {
+      if (!note.发布时间) return false
+      const noteDate = note.发布时间.split(' ')[0] // Extract date part
+      return noteDate === date
+    })
+  }
+
   // Custom tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -483,8 +500,11 @@ export function XiaowangTestCostPerMetric({
           formattedDate = `${label} (Average)`
         }
 
+        // Get posts for this date when in 7-day filtered mode
+        const postsForDate = getPostsForDate(label)
+
         return (
-          <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[200px]">
+          <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[240px] max-w-[400px]">
             <p className="font-bold text-gray-900 mb-3 border-b pb-2">{formattedDate}</p>
 
             {/* Selected Metric Section */}
@@ -494,6 +514,23 @@ export function XiaowangTestCostPerMetric({
               </p>
               <p className="text-sm text-gray-700">${dataPoint[metricConfig.dataKey].toFixed(3)}</p>
             </div>
+
+            {/* Posts Section - Show only if there are posts for this date */}
+            {postsForDate.length > 0 && (
+              <div className="mb-3">
+                <p className="text-sm font-semibold mb-2 text-purple-700">
+                  📝 Posts ({postsForDate.length})
+                </p>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {postsForDate.map((post, index) => (
+                    <div key={index} className="text-xs p-2 bg-purple-50 rounded border-l-2 border-purple-300">
+                      <div className="font-medium text-purple-800 line-clamp-2">{post.名称}</div>
+                      <div className="text-purple-600 text-xs mt-1">{post.类型}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )
       }
@@ -598,15 +635,41 @@ export function XiaowangTestCostPerMetric({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 20, right: 80, left: 40, bottom: 60 }}
+              margin={{ top: 40, right: 80, left: 40, bottom: 60 }}
             >
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 12, fill: '#6B7280' }}
+                tick={(props: any) => {
+                  const { x, y, payload } = props
+                  const dateStr = payload.value
+
+                  // Show Posts count when: (non-7-day range) OR (using "All data" mode in chart)
+                  if (!isSevenDayRange || !isFiltered) {
+                    const postsCount = notesWeekdayCount && notesWeekdayCount[dateStr] ? notesWeekdayCount[dateStr] : 0
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text x={0} y={0} dy={16} textAnchor="middle" fill="#6B7280" fontSize="12">
+                          {dateStr}
+                        </text>
+                        <text x={0} y={0} dy={32} textAnchor="middle" fill="#6B7280" fontSize="11">
+                          {postsCount} Posts
+                        </text>
+                      </g>
+                    )
+                  } else {
+                    // For 7-day range, just show the formatted date
+                    return (
+                      <g transform={`translate(${x},${y})`}>
+                        <text x={0} y={0} dy={16} textAnchor="middle" fill="#6B7280" fontSize="12">
+                          {formatDate(dateStr)}
+                        </text>
+                      </g>
+                    )
+                  }
+                }}
                 height={60}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
-                tickFormatter={formatDate}
               />
 
               {/* Y-axis - Cost Per Metric */}
@@ -641,7 +704,41 @@ export function XiaowangTestCostPerMetric({
                 dataKey={metricConfig.dataKey}
                 stroke={metricConfig.color}
                 strokeWidth={3}
-                dot={{ fill: metricConfig.color, strokeWidth: 2, r: 4 }}
+                dot={(props: any) => {
+                  // Check if there are posts for this date when showing 7-day range
+                  const hasNotesForDate = isSevenDayRange && isFiltered && props.payload && notesData.length > 0 &&
+                    notesData.some(note => {
+                      if (!note.发布时间) return false
+                      const noteDate = note.发布时间.split(' ')[0] // Extract date part
+                      return noteDate === props.payload.date
+                    })
+
+                  return (
+                    <g>
+                      {/* Normal dot */}
+                      <circle
+                        cx={props.cx}
+                        cy={props.cy}
+                        r={4}
+                        fill={metricConfig.color}
+                        strokeWidth={2}
+                      />
+                      {/* Vertical line for dates with notes (only in 7-day view) */}
+                      {hasNotesForDate && (
+                        <line
+                          x1={props.cx}
+                          y1={30}
+                          x2={props.cx}
+                          y2={280}
+                          stroke="#6B7280"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          opacity={0.8}
+                        />
+                      )}
+                    </g>
+                  )
+                }}
                 name={`${metricConfig.name} (Avg: $${average.toFixed(2)})`}
                 connectNulls={false}
               />

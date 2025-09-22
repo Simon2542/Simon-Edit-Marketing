@@ -18,11 +18,15 @@ interface WeeklyMetrics {
   totalLikes: number
   totalNewFollowers: number
   totalLeads: number
+  dailyLeads: number
+  costPerLead: number
   costChange?: number
   viewsChange?: number
   likesChange?: number
   newFollowersChange?: number
   leadsChange?: number
+  dailyLeadsChange?: number
+  costPerLeadChange?: number
 }
 
 export function XiaowangTestWeeklyAnalysis({
@@ -114,15 +118,22 @@ export function XiaowangTestWeeklyAnalysis({
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekEnd.getDate() + 6)
 
+      const totalCost = weekData.reduce((sum, d) => sum + (d.cost || 0), 0)
+      const totalLeads = weekData.reduce((sum, d) => sum + (d.leads || 0), 0)
+      const dailyLeads = totalLeads / 7 // Average leads per day
+      const costPerLead = totalLeads > 0 ? totalCost / totalLeads : 0
+
       const metrics: WeeklyMetrics = {
         weekStart: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         weekEnd: weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         weekEndDate: weekEnd,
-        totalCost: weekData.reduce((sum, d) => sum + (d.cost || 0), 0),
+        totalCost: totalCost,
         totalViews: weekData.reduce((sum, d) => sum + (d.clicks || 0), 0), // Map clicks to views
         totalLikes: weekData.reduce((sum, d) => sum + (d.likes || 0), 0),
         totalNewFollowers: weekData.reduce((sum, d) => sum + (d.followers || 0), 0),
-        totalLeads: weekData.reduce((sum, d) => sum + (d.leads || 0), 0)
+        totalLeads: totalLeads,
+        dailyLeads: dailyLeads,
+        costPerLead: costPerLead
       }
 
       weeks.push(metrics)
@@ -154,6 +165,12 @@ export function XiaowangTestWeeklyAnalysis({
       }
       if (previous.totalLeads > 0) {
         current.leadsChange = ((current.totalLeads - previous.totalLeads) / previous.totalLeads) * 100
+      }
+      if (previous.dailyLeads > 0) {
+        current.dailyLeadsChange = ((current.dailyLeads - previous.dailyLeads) / previous.dailyLeads) * 100
+      }
+      if (previous.costPerLead > 0) {
+        current.costPerLeadChange = ((current.costPerLead - previous.costPerLead) / previous.costPerLead) * 100
       }
     }
 
@@ -244,39 +261,53 @@ export function XiaowangTestWeeklyAnalysis({
             </div>
 
             <div className="space-y-2">
-              {/* Total Cost */}
+              {/* Leads */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Leads</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLeads)}</div>
+                  {renderChangePercent(weekData.leadsChange, 'positive')}
+                </div>
+              </div>
+
+              {/* Daily Leads */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
+                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Daily Leads</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{weekData.dailyLeads.toFixed(1)}</div>
+                  {renderChangePercent(weekData.dailyLeadsChange, 'positive')}
+                </div>
+              </div>
+
+              {/* Cost */}
               <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
                 <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Total Cost</div>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Cost</div>
                 <div className="flex items-center gap-2">
                   <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">${formatNumber(weekData.totalCost)}</div>
                   {renderChangePercent(weekData.costChange, 'negative')}
                 </div>
               </div>
 
-              {/* Views */}
+              {/* Cost per Lead */}
               <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
                 <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Views</div>
+                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Cost per Lead</div>
                 <div className="flex items-center gap-2">
-                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalViews)}</div>
-                  {renderChangePercent(weekData.viewsChange, 'positive')}
-                </div>
-              </div>
-
-              {/* Likes */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
-                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Likes</div>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLikes)}</div>
-                  {renderChangePercent(weekData.likesChange, 'positive')}
+                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">
+                    {weekData.costPerLead > 0 ? `$${weekData.costPerLead.toFixed(2)}` : '$0'}
+                  </div>
+                  {renderChangePercent(weekData.costPerLeadChange, 'negative')}
                 </div>
               </div>
 
@@ -289,18 +320,6 @@ export function XiaowangTestWeeklyAnalysis({
                 <div className="flex items-center gap-2">
                   <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalNewFollowers)}</div>
                   {renderChangePercent(weekData.newFollowersChange, 'positive')}
-                </div>
-              </div>
-
-              {/* Leads */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200/60 p-3 hover:shadow-lg transition-all duration-200 relative">
-                <svg className="absolute top-2 right-2 w-4 h-4 text-[#751FAE]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <div className="text-xs font-semibold text-[#751FAE] font-montserrat mb-2">Leads</div>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-semibold text-[#FF1493] font-montserrat">{formatNumber(weekData.totalLeads)}</div>
-                  {renderChangePercent(weekData.leadsChange, 'positive')}
                 </div>
               </div>
             </div>

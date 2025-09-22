@@ -4,24 +4,24 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { X, ExternalLink, FileText, Upload, Trash2 } from "lucide-react"
 
-interface LifeCarNote {
+interface XiaoWangTestNote {
   发布时间: string
   类型: string
   名称: string
   链接: string
 }
 
-interface LifeCarNotesModalProps {
+interface XiaoWangTestNotesModalProps {
   isOpen: boolean
   onClose: () => void
   onDateSelect?: (date: string) => void
   selectedDates?: string[]
-  onDataUpdate?: (data: LifeCarNote[]) => void
-  initialData?: LifeCarNote[] // 父组件传递的已有数据
+  onDataUpdate?: (data: XiaoWangTestNote[]) => void
+  initialData?: XiaoWangTestNote[] // 父组件传递的已有数据
 }
 
-export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates = [], onDataUpdate, initialData = [] }: LifeCarNotesModalProps) {
-  const [notes, setNotes] = useState<LifeCarNote[]>([])
+export function XiaoWangTestNotesModal({ isOpen, onClose, onDateSelect, selectedDates = [], onDataUpdate, initialData = [] }: XiaoWangTestNotesModalProps) {
+  const [notes, setNotes] = useState<XiaoWangTestNote[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -59,7 +59,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/lifecar-notes')
+      const response = await fetch('/api/xiaowang-test-notes')
       if (!response.ok) {
         throw new Error('Failed to fetch notes')
       }
@@ -88,7 +88,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
     formData.append('file', file)
 
     try {
-      const response = await fetch('/api/lifecar-notes/upload', {
+      const response = await fetch('/api/xiaowang-test-notes/upload', {
         method: 'POST',
         body: formData
       })
@@ -98,7 +98,9 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       }
 
       const result = await response.json()
+      console.log('Upload response:', result)
       if (result.success) {
+        console.log('Setting notes data:', result.data.length, 'notes')
         setNotes(result.data)
         setDataSource('uploaded')
         // Notify parent component of data update
@@ -123,7 +125,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
     if (!confirm('确定要清除所有数据吗？')) return
 
     try {
-      const response = await fetch('/api/lifecar-notes/clear', {
+      const response = await fetch('/api/xiaowang-test-notes/clear', {
         method: 'DELETE'
       })
 
@@ -156,7 +158,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       onDateSelect(noteDate) // Pass full date, conversion happens in parent
     }
   }
-  
+
   // Check if a date is selected
   const isDateSelected = (noteDate: string) => {
     const chartDate = convertDateFormat(noteDate)
@@ -168,18 +170,18 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-4xl mx-4 bg-white rounded-lg shadow-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-purple-600" />
-            <h2 className="text-xl font-semibold text-gray-900">LifeCar 笔记列表</h2>
+            <FileText className="w-5 h-5 text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-900">小王测试 笔记列表</h2>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -188,9 +190,9 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
               accept=".xlsx,.xls,.csv"
               onChange={handleFileUpload}
               className="hidden"
-              id="lifecar-file-upload"
+              id="xiaowang-test-file-upload"
             />
-            <label htmlFor="lifecar-file-upload">
+            <label htmlFor="xiaowang-test-file-upload">
               <Button
                 variant="outline"
                 size="sm"
@@ -230,7 +232,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <span className="ml-3 text-gray-600">加载中...</span>
             </div>
           )}
@@ -262,7 +264,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
 
               {/* Table Rows */}
               {notes.map((note, index) => (
-                <div 
+                <div
                   key={index}
                   className="grid grid-cols-12 gap-4 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -271,8 +273,8 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
                       onClick={() => handleDateClick(note.发布时间)}
                       className={`text-left transition-all cursor-pointer px-2 py-1 rounded ${
                         isDateSelected(note.发布时间)
-                          ? 'bg-purple-100 text-purple-700 font-semibold'
-                          : 'text-gray-600 hover:text-purple-600 hover:underline'
+                          ? 'bg-blue-100 text-blue-700 font-semibold'
+                          : 'text-gray-600 hover:text-blue-600 hover:underline'
                       }`}
                       title={isDateSelected(note.发布时间) ? "点击取消选中" : "点击在图表中高亮此日期"}
                     >
@@ -281,7 +283,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
                     </button>
                   </div>
                   <div className="col-span-2">
-                    <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                    <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
                       {note.类型}
                     </span>
                   </div>
@@ -289,7 +291,7 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
                     {note.链接 && note.链接.trim() ? (
                       <button
                         onClick={() => handleNoteTitleClick(note.链接)}
-                        className="text-left w-full text-purple-600 hover:text-purple-800 hover:underline flex items-center gap-1 group"
+                        className="text-left w-full text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 group"
                         title="点击打开链接"
                       >
                         <span>{note.名称}</span>

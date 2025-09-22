@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
-import { getNotesStore } from '../notes-store'
+import { getXiaoWangTestNotesStore } from '../notes-store'
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,11 +59,20 @@ export async function POST(request: NextRequest) {
     })
 
     // Filter out rows with "笔记违规" or "仅自己可见" status, and rows starting with "专业号行业"
+    console.log('XiaoWang Test: Raw data before filtering:', data.length, 'rows')
+    console.log('XiaoWang Test: Sample raw data:', data.slice(0, 2))
+
     const filteredData = data.filter(row => {
       const status = row['笔记状态'] || ''
       const publishTime = row['笔记发布时间'] || ''
-      return status !== '笔记违规' && status !== '仅自己可见' && !publishTime.toString().startsWith('专业号行业')
+      const isValid = status !== '笔记违规' && status !== '仅自己可见' && !publishTime.toString().startsWith('专业号行业')
+      if (!isValid) {
+        console.log('XiaoWang Test: Filtered out row:', { status, publishTime: publishTime.toString().substring(0, 10) })
+      }
+      return isValid
     })
+
+    console.log('XiaoWang Test: Data after filtering:', filteredData.length, 'rows')
 
     // Only return specific columns: 笔记发布时间, 笔记类型, 笔记名称, 笔记链接
     const processedData = filteredData.map(row => ({
@@ -74,9 +83,9 @@ export async function POST(request: NextRequest) {
     }))
 
     // Store in memory instead of file system
-    const store = getNotesStore()
+    const store = getXiaoWangTestNotesStore()
     store.setData(processedData)
-    console.log('Stored data in memory:', processedData.length, 'notes')
+    console.log('XiaoWang Test: Stored data in memory:', processedData.length, 'notes')
 
     return NextResponse.json({
       success: true,
@@ -86,7 +95,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error processing uploaded file:', error)
+    console.error('Error processing uploaded file for XiaoWang Test:', error)
     return NextResponse.json({
       error: 'Failed to process uploaded file',
       details: error instanceof Error ? error.message : String(error)

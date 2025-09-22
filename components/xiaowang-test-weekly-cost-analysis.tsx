@@ -12,6 +12,7 @@ interface XiaowangTestWeeklyCostAnalysisProps {
   selectedMetric?: MetricType
   onMetricChange?: (metric: MetricType) => void
   weeklyTimePeriod?: number
+  notesWeeklyCount?: {[key: string]: number} // Notes count by week
 }
 
 interface WeeklyData {
@@ -227,7 +228,8 @@ export function XiaowangTestWeeklyCostAnalysis({
   title = "Weekly Views/Likes/Followers/Leads & Cost Trend Analysis",
   selectedMetric: propSelectedMetric,
   onMetricChange,
-  weeklyTimePeriod = 12
+  weeklyTimePeriod = 12,
+  notesWeeklyCount = {}
 }: XiaowangTestWeeklyCostAnalysisProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(propSelectedMetric || 'views')
 
@@ -421,13 +423,56 @@ export function XiaowangTestWeeklyCostAnalysis({
       <CardContent>
         <div className="h-96">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={displayData} margin={{ top: 40, right: 50, left: 50, bottom: 5 }}>
+            <LineChart data={displayData} margin={{ top: 40, right: 80, left: 40, bottom: 60 }}>
               <XAxis
                 dataKey="week"
-                tick={{ fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
+                tick={(props: any) => {
+                  const { x, y, payload } = props
+                  const weekStr = payload.value
+
+                  // Count posts for this week
+                  const postsCount = notesWeeklyCount && notesWeeklyCount[weekStr] ? notesWeeklyCount[weekStr] : 0
+
+                  // Debug logging (only log first few times to avoid spam)
+                  if (Math.random() < 0.2) { // Only 20% chance to log each render
+                    console.log('Weekly chart debug - Format comparison:', {
+                      weekStr,
+                      postsCount,
+                      'Match found': notesWeeklyCount[weekStr] !== undefined,
+                      'Available keys (first 5)': Object.keys(notesWeeklyCount).slice(0, 5),
+                      'Sample key': Object.keys(notesWeeklyCount)[0],
+                      'Keys that contain Sep': Object.keys(notesWeeklyCount).filter(k => k.includes('Sep')),
+                      'Exact match test': notesWeeklyCount['Sep 8 - Sep 14'],
+                      'Trimmed match test': notesWeeklyCount[weekStr.trim()]
+                    });
+                  }
+
+                  return (
+                    <g>
+                      <text
+                        x={x}
+                        y={y + 16}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="11"
+                        transform={`rotate(-45, ${x}, ${y + 16})`}
+                      >
+                        {weekStr}
+                      </text>
+                      <text
+                        x={x}
+                        y={y + 30}
+                        textAnchor="end"
+                        fill="#6B7280"
+                        fontSize="10"
+                        transform={`rotate(-45, ${x}, ${y + 30})`}
+                      >
+                        {postsCount} Posts
+                      </text>
+                    </g>
+                  )
+                }}
+                height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
               />
