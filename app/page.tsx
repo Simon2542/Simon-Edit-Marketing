@@ -2,6 +2,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
+import useDashboardStore from "@/store/dashboardStore"
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { WeeklyLeadsCost } from "@/components/weekly-leads-cost"
 import { WeeklyCostLeads } from "@/components/weekly-cost-leads"
@@ -453,33 +454,46 @@ export default function Home() {
     }
   };
   
-  // API数据状态
-  const [brokerDataJson, setBrokerDataJson] = useState<any[]>([]);
-  const [weeklyDataJson, setWeeklyDataJson] = useState<any[]>([]);
-  const [monthlyDataJson, setMonthlyDataJson] = useState<any[]>([]);
-  const [dailyCostDataJson, setDailyCostDataJson] = useState<any[]>([]);
+  // API数据状态 - 使用全局store
+  const {
+    brokerData: brokerDataJson,
+    weeklyData: weeklyDataJson,
+    monthlyData: monthlyDataJson,
+    dailyCostData: dailyCostDataJson,
+    xiaowangTestData,
+    xiaowangTestNotesData,
+    lifeCarData,
+    lifeCarMonthlyData,
+    lifeCarNotesData,
+    setBrokerData: setBrokerDataJson,
+    setWeeklyData: setWeeklyDataJson,
+    setMonthlyData: setMonthlyDataJson,
+    setDailyCostData: setDailyCostDataJson,
+    setXiaowangTestData,
+    setXiaowangTestNotesData,
+    setLifeCarData,
+    setLifeCarMonthlyData,
+    setLifeCarNotesData,
+    updateAllData,
+    clearAllData
+  } = useDashboardStore();
   const [isLoading, setIsLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
-  // LifeCAR数据状态
-  const [lifeCarData, setLifeCarData] = useState<LifeCarDailyData[]>([]);
-  const [lifeCarMonthlyData, setLifeCarMonthlyData] = useState<LifeCarMonthlyData[]>([]);
+  // LifeCAR加载状态
   const [lifeCarLoading, setLifeCarLoading] = useState(false);
   const [lifeCarCsvContent, setLifeCarCsvContent] = useState<string>(''); // Store CSV content for child components
 
-  // 小王测试数据状态
-  const [xiaowangTestData, setXiaowangTestData] = useState<XiaowangTestData | null>(null);
+  // 小王测试加载状态
   const [xiaowangTestLoading, setXiaowangTestLoading] = useState(false);
 
   // LifeCar 笔记浮窗状态
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [selectedNoteDates, setSelectedNoteDates] = useState<string[]>([]);
-  const [lifeCarNotesData, setLifeCarNotesData] = useState<any[]>([]);
 
   // XiaoWang Test 笔记浮窗状态
   const [showXiaowangNotesModal, setShowXiaowangNotesModal] = useState(false);
   const [selectedXiaowangNoteDates, setSelectedXiaowangNoteDates] = useState<string[]>([]);
-  const [xiaowangTestNotesData, setXiaowangTestNotesData] = useState<any[]>([]);
 
   // XiaoWang Test Notes按星期几的统计
   const [xiaowangNotesWeekdayCount, setXiaowangNotesWeekdayCount] = useState<{[key: string]: number}>({});
@@ -790,10 +804,12 @@ export default function Home() {
       const result = await response.json();
       
       if (result.data) {
-        setBrokerDataJson(result.data.broker_data || []);
-        setWeeklyDataJson(result.data.weekly_data || []);
-        setMonthlyDataJson(result.data.monthly_data || []);
-        setDailyCostDataJson(result.data.daily_cost_data || []);
+        updateAllData({
+          broker_data: result.data.broker_data || [],
+          weekly_data: result.data.weekly_data || [],
+          monthly_data: result.data.monthly_data || [],
+          daily_cost_data: result.data.daily_cost_data || []
+        });
       } else {
         throw new Error('Invalid data structure received');
       }
@@ -801,10 +817,7 @@ export default function Home() {
       console.error('Failed to load data:', error);
       setDataError(error.message || 'Failed to load data');
       // 设置空数据以防止组件崩溃
-      setBrokerDataJson([]);
-      setWeeklyDataJson([]);
-      setMonthlyDataJson([]);
-      setDailyCostDataJson([]);
+      clearAllData();
     } finally {
       setIsLoading(false);
     }
@@ -872,10 +885,12 @@ export default function Home() {
       
       if (uploadedData) {
         // 直接使用上传返回的数据，不需要重新调用API
-        setBrokerDataJson(uploadedData.broker_data || []);
-        setWeeklyDataJson(uploadedData.weekly_data || []);
-        setMonthlyDataJson(uploadedData.monthly_data || []);
-        setDailyCostDataJson(uploadedData.daily_cost_data || []);
+        updateAllData({
+          broker_data: uploadedData.broker_data || [],
+          weekly_data: uploadedData.weekly_data || [],
+          monthly_data: uploadedData.monthly_data || [],
+          daily_cost_data: uploadedData.daily_cost_data || []
+        });
         console.log('Data updated from upload:', {
           broker_data: uploadedData.broker_data?.length || 0,
           weekly_data: uploadedData.weekly_data?.length || 0,
@@ -3553,10 +3568,12 @@ export default function Home() {
               onConsultationUploadSuccess={(data) => {
                 console.log('小王咨询数据上传成功，设置数据...');
                 if (data) {
-                  setBrokerDataJson(data.broker_data || []);
-                  setWeeklyDataJson(data.weekly_data || []);
-                  setMonthlyDataJson(data.monthly_data || []);
-                  setDailyCostDataJson(data.daily_cost_data || []);
+                  updateAllData({
+                    broker_data: data.broker_data || [],
+                    weekly_data: data.weekly_data || [],
+                    monthly_data: data.monthly_data || [],
+                    daily_cost_data: data.daily_cost_data || []
+                  });
                   // 同时更新小王测试数据的broker部分
                   if (xiaowangTestData) {
                     setXiaowangTestData({
