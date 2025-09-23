@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import useDashboardStore from "@/store/dashboardStore"
+import { sessionStorageUtils, type StorageData } from "@/lib/sessionStorageUtils"
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { WeeklyLeadsCost } from "@/components/weekly-leads-cost"
 import { WeeklyCostLeads } from "@/components/weekly-cost-leads"
@@ -454,29 +454,91 @@ export default function Home() {
     }
   };
   
-  // API数据状态 - 使用全局store
-  const {
-    brokerData: brokerDataJson,
-    weeklyData: weeklyDataJson,
-    monthlyData: monthlyDataJson,
-    dailyCostData: dailyCostDataJson,
-    xiaowangTestData,
-    xiaowangTestNotesData,
-    lifeCarData,
-    lifeCarMonthlyData,
-    lifeCarNotesData,
-    setBrokerData: setBrokerDataJson,
-    setWeeklyData: setWeeklyDataJson,
-    setMonthlyData: setMonthlyDataJson,
-    setDailyCostData: setDailyCostDataJson,
-    setXiaowangTestData,
-    setXiaowangTestNotesData,
-    setLifeCarData,
-    setLifeCarMonthlyData,
-    setLifeCarNotesData,
-    updateAllData,
-    clearAllData
-  } = useDashboardStore();
+  // API数据状态 - 使用sessionStorage
+  const [storageData, setStorageData] = useState<StorageData>(() => sessionStorageUtils.getData());
+
+  // 数据获取函数
+  const brokerDataJson = storageData.brokerData;
+  const weeklyDataJson = storageData.weeklyData;
+  const monthlyDataJson = storageData.monthlyData;
+  const dailyCostDataJson = storageData.dailyCostData;
+  const xiaowangTestData = storageData.xiaowangTestData;
+  const xiaowangTestNotesData = storageData.xiaowangTestNotesData;
+  const lifeCarData = storageData.lifeCarData;
+  const lifeCarMonthlyData = storageData.lifeCarMonthlyData;
+  const lifeCarNotesData = storageData.lifeCarNotesData;
+
+  // 数据设置函数
+  const setBrokerDataJson = (data: any[]) => {
+    const newData = { brokerData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setWeeklyDataJson = (data: any[]) => {
+    const newData = { weeklyData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setMonthlyDataJson = (data: any[]) => {
+    const newData = { monthlyData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setDailyCostDataJson = (data: any[]) => {
+    const newData = { dailyCostData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setXiaowangTestData = (data: any | null) => {
+    const newData = { xiaowangTestData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setXiaowangTestNotesData = (data: any[]) => {
+    const newData = { xiaowangTestNotesData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setLifeCarData = (data: any[]) => {
+    const newData = { lifeCarData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setLifeCarMonthlyData = (data: any[]) => {
+    const newData = { lifeCarMonthlyData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const setLifeCarNotesData = (data: any[]) => {
+    const newData = { lifeCarNotesData: data };
+    sessionStorageUtils.setData(newData);
+    setStorageData(prev => ({ ...prev, ...newData }));
+  };
+
+  const updateAllData = (data: {
+    broker_data?: any[];
+    weekly_data?: any[];
+    monthly_data?: any[];
+    daily_cost_data?: any[];
+  }) => {
+    sessionStorageUtils.updateData(data);
+    const newData = sessionStorageUtils.getData();
+    setStorageData(newData);
+  };
+
+  const clearAllData = () => {
+    sessionStorageUtils.clearAll();
+    const newData = sessionStorageUtils.getData();
+    setStorageData(newData);
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
 
