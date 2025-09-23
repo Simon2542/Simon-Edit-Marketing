@@ -263,12 +263,12 @@ export default function Home() {
   });
   
   // 账号筛选状态
-  const [selectedAccount, setSelectedAccount] = useState('xiaowang');
+  const [selectedAccount, setSelectedAccount] = useState('xiaowang-test');
 
   // 小王测试组件间共享的指标选择状态
   const [xiaowangSelectedMetric, setXiaowangSelectedMetric] = useState<'views' | 'likes' | 'followers' | 'leads'>('views');
 
-  // 小王咨询Weekly Performance时间段筛选状态
+  // 小王测试Weekly Performance时间段筛选状态
   const [weeklyTimePeriod, setWeeklyTimePeriod] = useState<number>(12); // Default 12 weeks
 
   // 计算Weekly Performance的时间范围
@@ -304,7 +304,8 @@ export default function Home() {
   // 账号切换处理函数
   const handleAccountChange = (account: string) => {
     setSelectedAccount(account);
-    
+
+
     // 当切换到LifeCar账号时，重置Day of Week Analysis的按钮状态为默认值
     if (account === 'lifecar') {
       setLifecarChartMetric('views');
@@ -316,7 +317,7 @@ export default function Home() {
     if (account === 'xiaowang-test') {
       setXiaowangChartFiltered(true);
     }
-    
+
     // 小王测试账号不自动加载数据，只使用上传的数据
     // if (account === 'xiaowang-test') {
     //   loadXiaowangTestData();
@@ -454,8 +455,24 @@ export default function Home() {
     }
   };
   
-  // API数据状态 - 使用sessionStorage
-  const [storageData, setStorageData] = useState<StorageData>(() => sessionStorageUtils.getData());
+  // API数据状态 - 使用sessionStorage，避免hydration错误
+  const [storageData, setStorageData] = useState<StorageData>(() => {
+    // 在服务端渲染时返回默认数据，避免hydration错误
+    if (typeof window === 'undefined') {
+      return {
+        brokerData: [],
+        weeklyData: [],
+        monthlyData: [],
+        dailyCostData: [],
+        xiaowangTestData: null,
+        xiaowangTestNotesData: [],
+        lifeCarData: [],
+        lifeCarMonthlyData: [],
+        lifeCarNotesData: [],
+      };
+    }
+    return sessionStorageUtils.getData();
+  });
 
   // 数据获取函数
   const brokerDataJson = storageData.brokerData;
@@ -467,6 +484,18 @@ export default function Home() {
   const lifeCarData = storageData.lifeCarData;
   const lifeCarMonthlyData = storageData.lifeCarMonthlyData;
   const lifeCarNotesData = storageData.lifeCarNotesData;
+
+  // 添加mounted状态来避免hydration错误
+  const [mounted, setMounted] = useState(false);
+
+  // 在客户端加载实际数据，避免hydration错误
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      const actualData = sessionStorageUtils.getData();
+      setStorageData(actualData);
+    }
+  }, []);
 
   // 数据设置函数
   const setBrokerDataJson = (data: any[]) => {
@@ -1264,12 +1293,26 @@ export default function Home() {
     );
   }
 
+  // 在组件完全挂载前不渲染动态内容，避免hydration错误
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-purple-100 to-pink-100">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-purple-100 to-pink-100">
       {/* 导航栏 */}
       <nav className="bg-white/80 backdrop-blur-xl border-b border-purple-200/30 sticky top-0 z-[100] shadow-lg shadow-purple-500/10">
-        {/* Sticky Time Filter Bar - Only show when dates are selected */}
-        {(startDate || endDate) && (
+        {/* Sticky Time Filter Bar - Only show when dates are selected and there is data */}
+        {(startDate || endDate) &&
+         ((selectedAccount === 'xiaowang-test' && xiaowangTestData) ||
+          (selectedAccount === 'lifecar' && lifeCarData && lifeCarData.length > 0) ||
+          (selectedAccount === 'xiaowang' && brokerDataJson && brokerDataJson.length > 0)) && (
         <div className="absolute top-full left-0 right-0 bg-white/[0.73] backdrop-blur-3xl border-b border-purple-200/40 shadow-lg z-[99] transition-all duration-300 animate-in fade-in slide-in-from-top-2">
           <div className="w-full px-8 py-2">
             <div className="max-w-7xl mx-auto">
@@ -1370,7 +1413,9 @@ export default function Home() {
               
               {/* 上传按钮组 - 放在logo右侧 */}
               <div className="flex items-center space-x-2 border-l border-gray-300 pl-4 z-[200] relative">
-                {/* 澳洲Broker小王咨询上传按钮 */}
+                {/* 澳洲Broker小王咨询上传按钮 - 已隐藏但保留代码以备将来使用 */}
+                {/* 注意：如需重新启用小王咨询上传按钮，取消下面代码的注释即可 */}
+                {/*
                 <button
                   type="button"
                   onClick={() => {
@@ -1387,7 +1432,25 @@ export default function Home() {
                   </svg>
                   <span className="font-medium">小王咨询</span>
                 </button>
-                
+                */}
+
+                {/* 小王Broker数据上传按钮 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('XiaoWang Test button clicked');
+                    setShowXiaowangTestUpload(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200 rounded-md border border-transparent hover:border-gray-200"
+                  title="Upload XiaoWang Broker Data"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="font-medium">小王Broker</span>
+                </button>
+
                 {/* LifeCar澳洲Broker上传按钮 */}
                 <button
                   type="button"
@@ -1404,23 +1467,6 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <span className="font-medium">LifeCar</span>
-                </button>
-
-                {/* 小王测试数据上传按钮 */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('XiaoWang Test button clicked');
-                    setShowXiaowangTestUpload(true);
-                  }}
-                  className="flex items-center gap-1 px-3 py-2 text-xs text-gray-600 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200 rounded-md border border-transparent hover:border-gray-200"
-                  title="Upload XiaoWang Test Data"
-                  style={{ pointerEvents: 'auto' }}
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <span className="font-medium">小王测试</span>
                 </button>
               </div>
             </div>
@@ -1459,9 +1505,50 @@ export default function Home() {
       
       {/* 主内容区域 */}
       <div className="w-full px-8 py-4 pt-16">
-        
+
+        {/* 统一的欢迎界面 */}
+        {((selectedAccount === 'xiaowang-test' && !xiaowangTestData) ||
+          (selectedAccount === 'lifecar' && (!lifeCarData || lifeCarData.length === 0)) ||
+          (selectedAccount === 'xiaowang' && (!brokerDataJson || brokerDataJson.length === 0))) && (
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-16">
+              <div className="text-8xl mb-8">
+                {selectedAccount === 'xiaowang-test' ? '📊' :
+                 selectedAccount === 'lifecar' ? '🚗' : '👨‍💼'}
+              </div>
+              <h1 className="text-4xl font-bold text-gray-800 mb-8">
+                {selectedAccount === 'xiaowang-test' ? 'Welcome to 澳洲小王Broker咨询' :
+                 selectedAccount === 'lifecar' ? 'Welcome to LifeCAR澳洲Broker' :
+                 'Welcome to 小王咨询 (Old Version)'}
+              </h1>
+              <button
+                onClick={() => {
+                  if (selectedAccount === 'xiaowang-test') {
+                    setShowXiaowangTestUpload(true);
+                  } else if (selectedAccount === 'lifecar') {
+                    setUploadAccountType('lifecar');
+                    setShowUpload(true);
+                  } else {
+                    setUploadAccountType('xiaowang');
+                    setShowUpload(true);
+                  }
+                }}
+                className={`px-8 py-4 text-white rounded-lg transition-all duration-200 font-semibold shadow-lg mx-auto ${
+                  selectedAccount === 'xiaowang-test' ?
+                    'bg-gradient-to-r from-[#751FAE] to-[#EF3C99] hover:from-[#6919A6] hover:to-[#E73691]' :
+                  selectedAccount === 'lifecar' ?
+                    'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700' :
+                    'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700'
+                }`}
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* LifeCAR账号的数据面板 */}
-        {selectedAccount === 'lifecar' && (
+        {selectedAccount === 'lifecar' && lifeCarData.length > 0 && (
           <>
             {/* 时间筛选器 - 独立卡片设计 */}
             <div className="max-w-7xl mx-auto mb-6">
@@ -1815,11 +1902,11 @@ export default function Home() {
         )}
 
         {/* 澳洲小王Broker咨询的数据面板 */}
-        {selectedAccount === 'xiaowang' && (
+        {selectedAccount === 'xiaowang' && brokerDataJson.length > 0 && (
           <>
-        
-        
-        
+
+
+
         {/* 时间筛选器 - 独立卡片设计 */}
         <div className="max-w-7xl mx-auto mb-6">
           <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-6">
@@ -1936,10 +2023,10 @@ export default function Home() {
             )}
           </div>
         </div>
-        
-        
-        {/* 概览统计卡片 - 只在有数据时显示 */}
-        {brokerDataJson.length > 0 && (
+
+
+        {/* 小王咨询 Old Version 概览统计卡片 - 只在有数据时显示 */}
+        {selectedAccount === 'xiaowang' && brokerDataJson.length > 0 && (
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6 glass-card-hover relative text-center">
             <div className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center">
@@ -2000,8 +2087,8 @@ export default function Home() {
         </div>
         )}
         
-        {/* 模块导航 - 只在有数据时显示 */}
-        {brokerDataJson.length > 0 && (
+        {/* 小王咨询 Old Version 模块导航 - 只在有数据时显示 */}
+        {selectedAccount === 'xiaowang' && brokerDataJson.length > 0 && (
         <div className="max-w-7xl mx-auto mb-6">
           <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-1">
             <div className="flex">
@@ -2045,48 +2132,9 @@ export default function Home() {
           </div>
         </div>
         )}
-        
-        {/* 动态内容区域 - 只在有数据时显示，如果没有数据显示欢迎界面 */}
-        {brokerDataJson.length === 0 ? (
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center bg-white/95 backdrop-blur-xl rounded-lg shadow-xl shadow-purple-500/10 ring-1 ring-purple-500/20 p-16">
-              <div className="text-8xl mb-8">🚀</div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-4">Welcome to Marketing Dashboard</h1>
-              <p className="text-lg text-gray-600 mb-6">Get started by uploading your marketing data to unlock powerful insights and analytics.</p>
-              <div className="space-y-4">
-                <div className="flex justify-center space-x-4">
-                  <button
-                    onClick={() => {
-                      setUploadAccountType('xiaowang');
-                      setShowUpload(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] text-white rounded-lg hover:from-[#6919A6] hover:to-[#E73691] transition-all duration-200 font-semibold shadow-lg"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Upload 小王咨询 Data
-                  </button>
-                  <button
-                    onClick={() => {
-                      setUploadAccountType('lifecar');
-                      setShowUpload(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-semibold shadow-lg"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Upload LifeCar Data
-                  </button>
-                </div>
-                <p className="text-sm text-gray-400 mt-4">
-                  Choose your data source to begin analyzing marketing performance, broker activities, and campaign effectiveness.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
+
+        {/* 小王咨询 Old Version 的内容区域 */}
+        {selectedAccount === 'xiaowang' && brokerDataJson.length > 0 && (
         <>
         {/* 动态内容区域 */}
         {activeModule === 'broker' && (
@@ -2111,7 +2159,7 @@ export default function Home() {
                 <div className="text-6xl mb-6">📊</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
                 <p className="text-gray-500 mb-4">Please upload your Excel data first to view the broker distribution analysis.</p>
-                <p className="text-sm text-gray-400">Click on the "小王咨询" upload button in the top navigation to get started.</p>
+                <p className="text-sm text-gray-400">Click on the "小王测试" upload button in the top navigation to get started.</p>
               </div>
             )}
 
@@ -2161,7 +2209,7 @@ export default function Home() {
                 <div className="text-6xl mb-6">💰</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
                 <p className="text-gray-500 mb-4">Please upload your Excel data first to view cost and leads analysis.</p>
-                <p className="text-sm text-gray-400">Click on the "小王咨询" upload button in the top navigation to get started.</p>
+                <p className="text-sm text-gray-400">Click on the "小王测试" upload button in the top navigation to get started.</p>
               </div>
             )}
           </div>
@@ -2185,7 +2233,7 @@ export default function Home() {
                 <div className="text-6xl mb-6">🔥</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
                 <p className="text-gray-500 mb-4">Please upload your Excel data first to view broker activity patterns.</p>
-                <p className="text-sm text-gray-400">Click on the "小王咨询" upload button in the top navigation to get started.</p>
+                <p className="text-sm text-gray-400">Click on the "小王测试" upload button in the top navigation to get started.</p>
               </div>
             )}
           </div>
@@ -2212,7 +2260,7 @@ export default function Home() {
                 <div className="text-6xl mb-6">⏰</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
                 <p className="text-gray-500 mb-4">Please upload your Excel data first to view customer acquisition time analysis.</p>
-                <p className="text-sm text-gray-400">Click on the "小王咨询" upload button in the top navigation to get started.</p>
+                <p className="text-sm text-gray-400">Click on the "小王测试" upload button in the top navigation to get started.</p>
               </div>
             )}
           </div>
@@ -2237,7 +2285,7 @@ export default function Home() {
                 <div className="text-6xl mb-6">📈</div>
                 <h3 className="text-xl font-semibold text-gray-700 mb-4">No Data Available</h3>
                 <p className="text-gray-500 mb-4">Please upload your Excel data first to view weekly performance analysis.</p>
-                <p className="text-sm text-gray-400">Click on the "小王咨询" upload button in the top navigation to get started.</p>
+                <p className="text-sm text-gray-400">Click on the "小王测试" upload button in the top navigation to get started.</p>
               </div>
             )}
           </div>
@@ -2250,7 +2298,7 @@ export default function Home() {
         )}
 
         {/* 小王测试的数据面板 */}
-        {selectedAccount === 'xiaowang-test' && (
+        {selectedAccount === 'xiaowang-test' && xiaowangTestData && (
           <>
             {/* 小王测试数据加载状态 */}
             {xiaowangTestLoading && (
@@ -3117,7 +3165,7 @@ export default function Home() {
                   <div className="max-w-7xl mx-auto mb-4 space-y-6">
                     <h2 className="text-xl font-semibold mb-3 bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">📊 Broker Distribution Analysis</h2>
 
-                    {/* 小王咨询数据图表（如果存在） */}
+                    {/* 小王测试数据图表（如果存在） */}
                     {brokerDataJson.length > 0 && (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {/* Broker分布饼图 */}
@@ -3383,7 +3431,7 @@ export default function Home() {
                         <p className="text-gray-500 mb-4">Please upload both test data and consultation data to view weekly analysis.</p>
                         <div className="text-sm text-gray-400 space-y-1">
                           <p>1. Upload 小王测试 data (CSV format)</p>
-                          <p>2. Upload 小王咨询 data with "new client info" sheet</p>
+                          <p>2. Upload 小王测试 data with "new client info" sheet</p>
                         </div>
                       </div>
                     )}
@@ -3425,7 +3473,7 @@ export default function Home() {
                         <p className="text-gray-500 mb-4">Please upload both test data and consultation data to view the template analysis.</p>
                         <div className="text-sm text-gray-400 space-y-1">
                           <p>1. Upload 小王测试 data (CSV format)</p>
-                          <p>2. Upload 小王咨询 data with broker information</p>
+                          <p>2. Upload 小王测试 data with broker information</p>
                         </div>
                       </div>
                     )}
@@ -3628,7 +3676,7 @@ export default function Home() {
                 setSelectedAccount('xiaowang-test');
               }}
               onConsultationUploadSuccess={(data) => {
-                console.log('小王咨询数据上传成功，设置数据...');
+                console.log('小王测试数据上传成功，设置数据...');
                 if (data) {
                   updateAllData({
                     broker_data: data.broker_data || [],
