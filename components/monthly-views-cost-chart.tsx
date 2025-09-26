@@ -390,24 +390,36 @@ export function MonthlyViewsCostChart({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const dataPoint = chartData.find(d => d.month === label)
-      
+
       if (dataPoint) {
         const [year, month] = label.split('-')
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                            'July', 'August', 'September', 'October', 'November', 'December']
         const formattedMonth = `${monthNames[parseInt(month) - 1]} ${year}`
-        
+
+        // Convert to notesMonthlyCount key format "Sep 2024"
+        const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const notesKey = `${monthNamesShort[parseInt(month) - 1]} ${year}`
+        const postsCount = notesMonthlyCount?.[notesKey] || 0
+
         return (
           <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-4 shadow-xl min-w-[200px]">
             <p className="font-bold text-gray-900 mb-3 border-b pb-2">{formattedMonth}</p>
-            
+
+            <div className="mb-2">
+              <p className="text-sm font-semibold mb-1" style={{ color: '#8B5CF6' }}>
+                📝 Posts
+              </p>
+              <p className="text-sm text-gray-700">{postsCount}</p>
+            </div>
+
             <div className="mb-2">
               <p className="text-sm font-semibold mb-1" style={{ color: metricConfig.color }}>
                 {metricConfig.label === 'Views' ? '👁️' : metricConfig.label === 'Likes' ? '❤️' : '👥'} {metricConfig.label}
               </p>
               <p className="text-sm text-gray-700">{dataPoint[metricConfig.dataKey as keyof MonthlyData].toLocaleString()}</p>
             </div>
-            
+
             <div>
               <p className="text-sm font-semibold mb-1" style={{ color: '#751FAE' }}>💰 Cost</p>
               <p className="text-sm text-gray-700">${dataPoint.cost.toFixed(2)}</p>
