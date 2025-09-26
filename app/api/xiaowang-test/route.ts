@@ -86,26 +86,26 @@ export async function GET() {
           
           // Parse the date and numeric values
           const date = parseDate(row['时间']);
-          
+
           adData.push({
             date: row['时间'],
             dateObj: date,
-            cost: parseFloat(row['消费']) || 0,
+            cost: (parseFloat(row['消费']) || 0) / 4.7, // Convert RMB to AUD
             impressions: parseInt(row['展现量']) || 0,
             clicks: parseInt(row['点击量']) || 0,
             clickRate: parseFloat(row['点击率']?.replace('%', '')) || 0,
-            avgClickCost: parseFloat(row['平均点击成本']) || 0,
+            avgClickCost: (parseFloat(row['平均点击成本']) || 0) / 4.7, // Convert RMB to AUD
             likes: parseInt(row['点赞']) || 0,
             comments: parseInt(row['评论']) || 0,
             favorites: parseInt(row['收藏']) || 0,
-            follows: parseInt(row['关注']) || 0,
+            followers: parseInt(row['关注']) || 0,
             shares: parseInt(row['分享']) || 0,
             interactions: parseInt(row['互动量']) || 0,
-            avgInteractionCost: parseFloat(row['平均互动成本']) || 0,
+            avgInteractionCost: (parseFloat(row['平均互动成本']) || 0) / 4.7, // Convert RMB to AUD
             actionClicks: parseInt(row['行动按钮点击量']) || 0,
             actionClickRate: parseFloat(row['行动按钮点击率']?.replace('%', '')) || 0,
             conversions: parseInt(row['多转化人数（添加企微+私信咨询）']) || 0,
-            conversionCost: parseFloat(row['多转化成本（添加企微+私信咨询）']) || 0
+            conversionCost: (parseFloat(row['多转化成本（添加企微+私信咨询）']) || 0) / 4.7 // Convert RMB to AUD
           });
         }
       }
@@ -212,26 +212,26 @@ export async function POST(request: Request) {
           });
           
           const date = parseDate(row['时间']);
-          
+
           adData.push({
             date: row['时间'],
             dateObj: date,
-            cost: parseFloat(row['消费']) || 0,
+            cost: (parseFloat(row['消费']) || 0) / 4.7, // Convert RMB to AUD
             impressions: parseInt(row['展现量']) || 0,
             clicks: parseInt(row['点击量']) || 0,
             clickRate: parseFloat(row['点击率']?.replace('%', '')) || 0,
-            avgClickCost: parseFloat(row['平均点击成本']) || 0,
+            avgClickCost: (parseFloat(row['平均点击成本']) || 0) / 4.7, // Convert RMB to AUD
             likes: parseInt(row['点赞']) || 0,
             comments: parseInt(row['评论']) || 0,
             favorites: parseInt(row['收藏']) || 0,
-            follows: parseInt(row['关注']) || 0,
+            followers: parseInt(row['关注']) || 0,
             shares: parseInt(row['分享']) || 0,
             interactions: parseInt(row['互动量']) || 0,
-            avgInteractionCost: parseFloat(row['平均互动成本']) || 0,
+            avgInteractionCost: (parseFloat(row['平均互动成本']) || 0) / 4.7, // Convert RMB to AUD
             actionClicks: parseInt(row['行动按钮点击量']) || 0,
             actionClickRate: parseFloat(row['行动按钮点击率']?.replace('%', '')) || 0,
             conversions: parseInt(row['多转化人数（添加企微+私信咨询）']) || 0,
-            conversionCost: parseFloat(row['多转化成本（添加企微+私信咨询）']) || 0
+            conversionCost: (parseFloat(row['多转化成本（添加企微+私信咨询）']) || 0) / 4.7 // Convert RMB to AUD
           });
         }
         

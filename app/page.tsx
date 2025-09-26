@@ -34,6 +34,7 @@ import { LifeCarNotesModal } from "@/components/lifecar-notes-modal"
 import { XiaoWangTestNotesModal } from "@/components/xiaowang-test-notes-modal"
 import { XiaowangUpload } from "@/components/xiaowang-upload"
 import { XiaowangDualUpload } from "@/components/xiaowang-dual-upload"
+import { AllInOneUpload } from "@/components/all-in-one-upload"
 import { XiaowangTestCostAnalysis } from "@/components/xiaowang-test-cost-analysis"
 import { XiaowangTestCostPerMetric } from "@/components/xiaowang-test-cost-per-metric"
 import { XiaowangTestWeeklyCostAnalysis } from "@/components/xiaowang-test-weekly-cost-analysis"
@@ -256,6 +257,7 @@ export default function Home() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadAccountType, setUploadAccountType] = useState<'lifecar' | 'xiaowang'>('xiaowang');
   const [showXiaowangTestUpload, setShowXiaowangTestUpload] = useState(false);
+  const [showAllInOneUpload, setShowAllInOneUpload] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hiddenModules, setHiddenModules] = useState<{[account: string]: string[]}>({
@@ -895,6 +897,30 @@ export default function Home() {
       const result = await response.json();
       
       if (result.data) {
+        // === 单个上传数据内容详细检查 (手动触发) ===
+        console.log('=== 手动触发单个上传数据内容详细检查 ===');
+        if (result.data?.broker_data) {
+          console.log('单个上传 Broker数据总数:', result.data.broker_data.length);
+          console.log('单个上传 前5条broker记录:', result.data.broker_data.slice(0, 5));
+
+          // 按broker分组统计
+          const brokerCounts = {};
+          result.data.broker_data.forEach(item => {
+            brokerCounts[item.broker] = (brokerCounts[item.broker] || 0) + 1;
+          });
+          console.log('单个上传 每个broker的记录数:', brokerCounts);
+
+          // 检查空值情况
+          const emptyFields = {
+            no: result.data.broker_data.filter(item => !item.no).length,
+            broker: result.data.broker_data.filter(item => !item.broker).length,
+            date: result.data.broker_data.filter(item => !item.date).length,
+            wechat: result.data.broker_data.filter(item => !item.wechat).length,
+            source: result.data.broker_data.filter(item => !item.source).length
+          };
+          console.log('单个上传 空值字段统计:', emptyFields);
+        }
+
         updateAllData({
           broker_data: result.data.broker_data || [],
           weekly_data: result.data.weekly_data || [],
@@ -961,11 +987,12 @@ export default function Home() {
   //   loadLifeCarData();
   // }, []);
 
-  // 监听dataRefreshKey变化，重新加载数据
+  // 监听dataRefreshKey变化，重新加载数据 - 但不要覆盖All-in-One上传的数据
   useEffect(() => {
     if (dataRefreshKey > 0) {
-      console.log('Data refresh triggered, reloading data...');
-      loadData();
+      console.log('Data refresh triggered, but skipping loadData to preserve uploaded data');
+      // 注释掉自动刷新，避免覆盖用户上传的数据
+      // loadData();
     }
   }, [dataRefreshKey]);
 
@@ -975,6 +1002,45 @@ export default function Home() {
       setShowUpload(false);
       
       if (uploadedData) {
+        // === 单个上传数据内容详细检查 ===
+        console.log('=== 单个上传数据内容详细检查 ===');
+        if (uploadedData?.broker_data) {
+          console.log('单个上传 Broker数据总数:', uploadedData.broker_data.length);
+          console.log('单个上传 前5条broker记录:', uploadedData.broker_data.slice(0, 5));
+          console.log('单个上传 broker字段样例:', uploadedData.broker_data.slice(0, 3).map(item => ({
+            no: item.no,
+            broker: item.broker,
+            date: item.date,
+            wechat: item.wechat,
+            source: item.source
+          })));
+
+          // 检查所有唯一的broker名称
+          const uniqueBrokers = [...new Set(uploadedData.broker_data.map(item => item.broker))];
+          console.log('单个上传 所有唯一的broker名称:', uniqueBrokers);
+
+          // 检查日期格式
+          const datesSample = uploadedData.broker_data.slice(0, 10).map(item => item.date);
+          console.log('单个上传 日期格式样例:', datesSample);
+
+          // 按broker分组统计
+          const brokerCounts = {};
+          uploadedData.broker_data.forEach(item => {
+            brokerCounts[item.broker] = (brokerCounts[item.broker] || 0) + 1;
+          });
+          console.log('单个上传 每个broker的记录数:', brokerCounts);
+
+          // 检查空值情况
+          const emptyFields = {
+            no: uploadedData.broker_data.filter(item => !item.no).length,
+            broker: uploadedData.broker_data.filter(item => !item.broker).length,
+            date: uploadedData.broker_data.filter(item => !item.date).length,
+            wechat: uploadedData.broker_data.filter(item => !item.wechat).length,
+            source: uploadedData.broker_data.filter(item => !item.source).length
+          };
+          console.log('单个上传 空值字段统计:', emptyFields);
+        }
+
         // 直接使用上传返回的数据，不需要重新调用API
         updateAllData({
           broker_data: uploadedData.broker_data || [],
@@ -1467,6 +1533,24 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <span className="font-medium">LifeCar</span>
+                </button>
+
+                {/* All in One 上传按钮 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log('All in One button clicked');
+                    setShowAllInOneUpload(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 text-xs text-white bg-gradient-to-r from-[#751FAE] to-[#EF3C99] hover:from-[#6919A6] hover:to-[#E73691] transition-all duration-200 rounded-md shadow-md"
+                  title="Upload All in One Excel File (Testing Phase)"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <span className="font-medium">All in One</span>
+                  <span className="text-xs bg-white/20 px-1 rounded text-white">测试</span>
                 </button>
               </div>
             </div>
@@ -3677,6 +3761,9 @@ export default function Home() {
               }}
               onConsultationUploadSuccess={(data) => {
                 console.log('小王测试数据上传成功，设置数据...');
+                console.log('Received data:', data);
+                console.log('weekly_data length:', data?.weekly_data?.length || 0);
+                console.log('broker_data length:', data?.broker_data?.length || 0);
                 if (data) {
                   updateAllData({
                     broker_data: data.broker_data || [],
@@ -3693,6 +3780,149 @@ export default function Home() {
                   }
                 }
                 setSelectedAccount('xiaowang');
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* All in One 上传模态框 */}
+      {showAllInOneUpload && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]">
+          <div className="bg-white/90 backdrop-blur-xl rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl shadow-purple-500/20 border border-purple-200/50">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-[#751FAE] to-[#EF3C99] bg-clip-text text-transparent font-montserrat">All in One Upload</h2>
+                <p className="text-sm text-gray-600 font-montserrat font-light">测试阶段 - Session Break</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllInOneUpload(false)}
+                className="text-purple-500 hover:text-purple-700 hover:bg-purple-50"
+              >
+                ✕
+              </Button>
+            </div>
+            <AllInOneUpload
+              onUploadSuccess={async (data) => {
+                console.log('All in One upload successful:', data);
+
+                // === 详细数据内容检查 ===
+                console.log('=== ALL-IN-ONE 数据内容详细检查 ===');
+                if (data?.xiaowangConsultation?.broker_data) {
+                  console.log('All-in-One Broker数据总数:', data.xiaowangConsultation.broker_data.length);
+                  console.log('All-in-One 前5条broker记录:', data.xiaowangConsultation.broker_data.slice(0, 5));
+                  console.log('All-in-One broker字段样例:', data.xiaowangConsultation.broker_data.slice(0, 3).map(item => ({
+                    no: item.no,
+                    broker: item.broker,
+                    date: item.date,
+                    wechat: item.wechat,
+                    source: item.source
+                  })));
+
+                  // 检查所有唯一的broker名称
+                  const uniqueBrokers = [...new Set(data.xiaowangConsultation.broker_data.map(item => item.broker))];
+                  console.log('All-in-One 所有唯一的broker名称:', uniqueBrokers);
+
+                  // 检查日期格式
+                  const datesSample = data.xiaowangConsultation.broker_data.slice(0, 10).map(item => item.date);
+                  console.log('All-in-One 日期格式样例:', datesSample);
+
+                  // 按broker分组统计
+                  const brokerCounts = {};
+                  data.xiaowangConsultation.broker_data.forEach(item => {
+                    brokerCounts[item.broker] = (brokerCounts[item.broker] || 0) + 1;
+                  });
+                  console.log('All-in-One 每个broker的记录数:', brokerCounts);
+
+                  // 检查空值情况
+                  const emptyFields = {
+                    no: data.xiaowangConsultation.broker_data.filter(item => !item.no).length,
+                    broker: data.xiaowangConsultation.broker_data.filter(item => !item.broker).length,
+                    date: data.xiaowangConsultation.broker_data.filter(item => !item.date).length,
+                    wechat: data.xiaowangConsultation.broker_data.filter(item => !item.wechat).length,
+                    source: data.xiaowangConsultation.broker_data.filter(item => !item.source).length
+                  };
+                  console.log('All-in-One 空值字段统计:', emptyFields);
+                }
+
+                // 处理数据映射到相应的状态
+                if (data) {
+                  // 更新小王 Broker 数据 (client_info -> xiaowang consultation)
+                  if (data.xiaowangConsultation) {
+                    updateAllData({
+                      broker_data: data.xiaowangConsultation.broker_data || [],
+                      weekly_data: data.xiaowangConsultation.weekly_data || [],
+                      monthly_data: data.xiaowangConsultation.monthly_data || [],
+                      daily_cost_data: data.xiaowangConsultation.daily_cost_data || []
+                    });
+                  }
+
+                  // 更新小王测试数据 (小王投放 -> xiaowang advertising, 小王笔记 -> xiaowang notes)
+                  if (data.xiaowangAdvertising || data.xiaowangNotes || data.xiaowangConsultation) {
+                    // All-in-One现在返回的是rawData而不是adData
+                    if (data.xiaowangAdvertising && data.xiaowangAdvertising.rawData) {
+                      // 使用新格式，构造正确的数据结构
+                      setXiaowangTestData({
+                        brokerData: data.xiaowangConsultation?.broker_data || [],
+                        rawData: data.xiaowangAdvertising.rawData || [],  // 使用rawData
+                        adData: data.xiaowangAdvertising.rawData || [],   // 同时设置adData保持兼容
+                        dailyData: data.xiaowangAdvertising.dailyData || [],
+                        summary: data.xiaowangAdvertising.summary || {},
+                        notesData: data.xiaowangNotes || []
+                      });
+                    } else {
+                      // 兼容旧格式或空数据
+                      setXiaowangTestData({
+                        brokerData: data.xiaowangConsultation?.broker_data || [],
+                        rawData: [],
+                        adData: [],
+                        dailyData: [],
+                        summary: {},
+                        notesData: data.xiaowangNotes || []
+                      });
+                    }
+
+                    // 更新小王笔记数据到正确的状态
+                    if (data.xiaowangNotes && data.xiaowangNotes.length > 0) {
+                      console.log('All-in-One: Updating XiaoWang notes data:', data.xiaowangNotes.length, 'notes');
+                      setXiaowangTestNotesData(data.xiaowangNotes);
+                    }
+
+                    // 切换到小王测试账户
+                    setSelectedAccount('xiaowang-test');
+                  }
+
+                  // 更新 LifeCar 数据 (LifeCar投放 -> lifecar data, LifeCar笔记 -> lifecar notes)
+                  if (data.lifecarData) {
+                    setLifeCarData(data.lifecarData);
+                    // 如果有月度数据，也设置月度数据
+                    if (data.lifecarMonthlyData) {
+                      setLifeCarMonthlyData(data.lifecarMonthlyData);
+                    } else {
+                      // 如果没有月度数据，从日数据生成
+                      try {
+                        const { aggregateByMonth } = await import('@/lib/lifecar-data-processor');
+                        const monthlyData = aggregateByMonth(data.lifecarData);
+                        setLifeCarMonthlyData(monthlyData);
+                      } catch (error) {
+                        console.error('Failed to generate monthly data:', error);
+                      }
+                    }
+                  }
+
+                  // 更新 LifeCar 笔记数据
+                  if (data.lifecarNotes && data.lifecarNotes.length > 0) {
+                    console.log('All-in-One: Updating LifeCar notes data:', data.lifecarNotes.length, 'notes');
+                    setLifeCarNotesData(data.lifecarNotes);
+                  }
+
+                  // 显示成功消息并刷新数据
+                  setDataRefreshKey(prev => prev + 1);
+                }
+
+                setShowAllInOneUpload(false);
               }}
             />
           </div>

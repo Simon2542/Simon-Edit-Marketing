@@ -57,7 +57,10 @@
       "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
       "Read(/C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app/**)",
       "Bash(git checkout:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(dir \"C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\full data\")",
+      "Bash(dir \"C:\\Users\\inter\\Desktop\\Simon-Edit-Marketing\\app\\api\\all-in-one-upload\")",
+      "Bash(dir:*)"
     ],
     "deny": []
   }

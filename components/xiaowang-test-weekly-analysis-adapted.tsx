@@ -149,9 +149,9 @@ export function XiaowangTestWeeklyOverallAverage({ weeklyData = [], brokerData =
     );
   }, [weeklyMetrics, selectedYear]);
 
-  // Calculate overall averages
+  // Calculate overall averages - 从原生broker数据计算实际周数
   const overallAverages = useMemo(() => {
-    if (filteredMetrics.length === 0) {
+    if (!brokerData || brokerData.length === 0) {
       return {
         avgLeads: 0,
         avgDailyLeads: 0,
@@ -162,23 +162,82 @@ export function XiaowangTestWeeklyOverallAverage({ weeklyData = [], brokerData =
       }
     }
 
+    // 从原生broker数据计算实际的日期范围和周数
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
+
+    // 日期解析函数
+    const parseClientDate = (dateValue: any) => {
+      if (typeof dateValue === 'number') {
+        return new Date((dateValue - 25569) * 86400 * 1000);
+      } else if (typeof dateValue === 'string') {
+        if (dateValue.includes('/')) {
+          const parts = dateValue.split('/');
+          if (parts.length === 3) {
+            const month = parseInt(parts[0]);
+            const day = parseInt(parts[1]);
+            let year = parseInt(parts[2]);
+            if (year < 100) {
+              year = year > 50 ? 1900 + year : 2000 + year;
+            }
+            return new Date(year, month - 1, day);
+          }
+        } else {
+          return new Date(dateValue);
+        }
+      }
+      return null;
+    };
+
+    // 根据selectedYear过滤broker数据
+    const filteredBrokerData = selectedYear === 'all' ? brokerData : brokerData.filter(item => {
+      const date = parseClientDate(item.date || item.Date || item['时间']);
+      return date && date.getFullYear().toString() === selectedYear;
+    });
+
+    // 计算过滤后数据的日期范围
+    filteredBrokerData.forEach((item: any) => {
+      const clientDate = parseClientDate(item.date || item.Date || item['时间']);
+      if (clientDate && !isNaN(clientDate.getTime())) {
+        if (!minDate || clientDate < minDate) minDate = clientDate;
+        if (!maxDate || clientDate > maxDate) maxDate = clientDate;
+      }
+    });
+
+    // 计算实际的周数
+    let actualWeeks = 1;
+    if (minDate && maxDate) {
+      const daysDifference = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
+      actualWeeks = Math.ceil(daysDifference / 7);
+      console.log('Overall Weekly Average 计算（新小王）:', {
+        minDate: minDate.toISOString().split('T')[0],
+        maxDate: maxDate.toISOString().split('T')[0],
+        daysDifference,
+        actualWeeks,
+        totalLeads: filteredBrokerData.length,
+        selectedYear
+      });
+    }
+
+    // 如果有处理后的周数据，使用它来计算cost和followers
     const totals = filteredMetrics.reduce((acc, week) => ({
       totalCost: acc.totalCost + week.totalCost,
       totalLeads: acc.totalLeads + week.totalLeads,
       totalNewFollowers: acc.totalNewFollowers + week.totalNewFollowers,
     }), { totalCost: 0, totalLeads: 0, totalNewFollowers: 0 })
 
-    const weekCount = filteredMetrics.length
+    // 使用原生数据的leads总数和实际周数计算平均值
+    const totalLeadsFromBroker = filteredBrokerData.length;
 
     return {
-      avgLeads: totals.totalLeads / weekCount,
-      avgDailyLeads: (totals.totalLeads / weekCount) / 7, // Average daily leads
-      avgCost: totals.totalCost / weekCount,
-      avgCostPerLead: totals.totalLeads > 0 ? totals.totalCost / totals.totalLeads : 0,
-      avgNewFollowers: totals.totalNewFollowers / weekCount,
-      totalWeeks: weekCount,
+      avgLeads: totalLeadsFromBroker / actualWeeks,
+      avgDailyLeads: (totalLeadsFromBroker / actualWeeks) / 7, // Average daily leads
+      avgCost: totals.totalCost / actualWeeks,  // 使用实际周数计算平均成本
+      avgCostPerLead: totalLeadsFromBroker > 0 ? totals.totalCost / totalLeadsFromBroker : 0,
+      avgNewFollowers: totals.totalNewFollowers / actualWeeks,  // 使用实际周数
+      totalWeeks: actualWeeks,  // 显示实际周数
     }
-  }, [filteredMetrics])
+  }, [filteredMetrics, brokerData, selectedYear])
 
   return (
     <div className="bg-white/95 backdrop-blur-xl rounded-lg shadow-lg border border-gray-200/50 p-6">

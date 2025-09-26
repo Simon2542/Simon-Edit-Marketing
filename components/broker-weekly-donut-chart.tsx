@@ -31,12 +31,17 @@ function processBrokerWeeklyAverage(brokerDataJson: any[] = [], weeklyDataJson: 
       return broker;
     };
     
-    // 解析日期的函数
+    // 解析日期的函数 - 支持All-in-One的YYYY-MM-DD格式
     const parseClientDate = (dateValue: any) => {
       if (typeof dateValue === 'number') {
         return new Date((dateValue - 25569) * 86400 * 1000);
       } else if (typeof dateValue === 'string') {
-        if (dateValue.includes('/')) {
+        // 优先处理YYYY-MM-DD格式 (All-in-One格式)
+        if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return new Date(dateValue + 'T00:00:00');
+        }
+        // 处理MM/DD/YYYY格式
+        else if (dateValue.includes('/')) {
           const parts = dateValue.split('/');
           if (parts.length === 3) {
             const month = parseInt(parts[0]);
@@ -47,7 +52,9 @@ function processBrokerWeeklyAverage(brokerDataJson: any[] = [], weeklyDataJson: 
             }
             return new Date(year, month - 1, day);
           }
-        } else {
+        }
+        // 其他字符串格式
+        else {
           return new Date(dateValue);
         }
       }
@@ -72,8 +79,13 @@ function processBrokerWeeklyAverage(brokerDataJson: any[] = [], weeklyDataJson: 
       }
     });
     
-    // 使用实际的周数据总数，与其他组件保持一致
-    const totalWeeks = weeklyDataJson.length;
+    // 从原生broker数据计算实际的周数，而不是使用预处理的weeklyData长度
+    let totalWeeks = 1; // 默认至少1周
+    if (allDataMinDate && allDataMaxDate) {
+      // 计算日期范围跨越的实际周数
+      const daysDifference = Math.ceil((allDataMaxDate.getTime() - allDataMinDate.getTime()) / (1000 * 60 * 60 * 24));
+      totalWeeks = Math.ceil(daysDifference / 7); // 向上取整到周数
+    }
     
     // 生成每周平均数据 - 过滤掉W、N/A、ruofan和Zoey
     const weeklyAverageData = Object.entries(allBrokerCounts)
@@ -94,6 +106,10 @@ function processBrokerWeeklyAverage(brokerDataJson: any[] = [], weeklyDataJson: 
     
     console.log('Broker每周平均数据:', {
       totalWeeks,
+      dateRange: allDataMinDate && allDataMaxDate ? {
+        minDate: allDataMinDate.toISOString().split('T')[0],
+        maxDate: allDataMaxDate.toISOString().split('T')[0]
+      } : null,
       allBrokerCounts,
       weeklyAverageData
     });
@@ -194,12 +210,70 @@ export function BrokerWeeklyDonutChart({ startDate = '', endDate = '', brokerDat
     return null;
   };
 
-  // 计算平均每周总leads - 直接计算整体平均
+  // 计算平均每周总leads - 从原生broker数据计算实际周数
   const avgLeadsPerWeek = useMemo(() => {
     const totalLeads = brokerData?.length || 0;
-    const totalWeeksCount = weeklyData?.length || 1;
-    return totalLeads / totalWeeksCount;
-  }, [brokerData, weeklyData]);
+
+    // 日期解析函数 - 支持All-in-One的YYYY-MM-DD格式 (复制自processBrokerWeeklyAverage)
+    const parseClientDate = (dateValue: any) => {
+      if (typeof dateValue === 'number') {
+        return new Date((dateValue - 25569) * 86400 * 1000);
+      } else if (typeof dateValue === 'string') {
+        // 优先处理YYYY-MM-DD格式 (All-in-One格式)
+        if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return new Date(dateValue + 'T00:00:00');
+        }
+        // 处理MM/DD/YYYY格式
+        else if (dateValue.includes('/')) {
+          const parts = dateValue.split('/');
+          if (parts.length === 3) {
+            const month = parseInt(parts[0]);
+            const day = parseInt(parts[1]);
+            let year = parseInt(parts[2]);
+            if (year < 100) {
+              year = year > 50 ? 1900 + year : 2000 + year;
+            }
+            return new Date(year, month - 1, day);
+          }
+        }
+        // 其他字符串格式
+        else {
+          return new Date(dateValue);
+        }
+      }
+      return null;
+    };
+
+    // 从brokerData计算实际跨越的周数
+    let actualWeeks = 1;
+    if (brokerData && brokerData.length > 0) {
+      let minDate: Date | null = null;
+      let maxDate: Date | null = null;
+
+      brokerData.forEach((client: any) => {
+        const clientDate = parseClientDate(client.date);
+        if (clientDate && !isNaN(clientDate.getTime())) {
+          if (!minDate || clientDate < minDate) minDate = clientDate;
+          if (!maxDate || clientDate > maxDate) maxDate = clientDate;
+        }
+      });
+
+      if (minDate && maxDate) {
+        const daysDifference = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
+        actualWeeks = Math.ceil(daysDifference / 7);
+        console.log('Avg Leads per Week 计算:', {
+          totalLeads,
+          minDate: minDate.toISOString().split('T')[0],
+          maxDate: maxDate.toISOString().split('T')[0],
+          daysDifference,
+          actualWeeks,
+          avgLeadsPerWeek: totalLeads / actualWeeks
+        });
+      }
+    }
+
+    return totalLeads / actualWeeks;
+  }, [brokerData]);
 
   return (
     <div className="p-6 flex flex-col h-full">

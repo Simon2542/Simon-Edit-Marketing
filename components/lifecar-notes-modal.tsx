@@ -32,7 +32,13 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
     if (isOpen) {
       // 优先使用父组件传递的数据
       if (initialData && initialData.length > 0) {
-        setNotes(initialData)
+        // 排序数据：按发布时间从晚到早
+        const sortedInitialData = [...initialData].sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedInitialData)
         setDataSource('uploaded')
         setError(null)
       } else {
@@ -65,7 +71,13 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
       }
       const result = await response.json()
       if (result.success) {
-        setNotes(result.data)
+        // 排序数据：按发布时间从晚到早
+        const sortedData = (result.data || []).sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedData)
         setDataSource(result.source || null)
       } else {
         throw new Error(result.error || 'Unknown error')
@@ -99,11 +111,17 @@ export function LifeCarNotesModal({ isOpen, onClose, onDateSelect, selectedDates
 
       const result = await response.json()
       if (result.success) {
-        setNotes(result.data)
+        // 排序数据：按发布时间从晚到早
+        const sortedData = (result.data || []).sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedData)
         setDataSource('uploaded')
         // Notify parent component of data update
         if (onDataUpdate) {
-          onDataUpdate(result.data)
+          onDataUpdate(sortedData)
         }
         // Clear file input
         if (fileInputRef.current) {

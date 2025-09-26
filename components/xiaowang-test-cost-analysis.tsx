@@ -33,14 +33,7 @@ type MetricType = 'views' | 'likes' | 'followers' | 'leads'
 
 // Process Xiaowang test data combined with consultation leads data
 function processXiaowangTestData(xiaowangTestData: any, brokerData: any[]): DailyData[] {
-  console.log('XiaowangTestCostAnalysis - 接收到的数据:', {
-    xiaowangTestData,
-    dailyData: xiaowangTestData?.dailyData,
-    brokerDataLength: brokerData?.length || 0
-  });
-
   if (!xiaowangTestData?.dailyData || !Array.isArray(xiaowangTestData.dailyData)) {
-    console.log('XiaowangTestCostAnalysis - 没有找到dailyData，返回空数组');
     return []
   }
 
@@ -144,17 +137,23 @@ function processXiaowangTestData(xiaowangTestData: any, brokerData: any[]): Dail
   }
 
   // Process Xiaowang test daily data
-  const processedData = xiaowangTestData.dailyData.map((item: any) => ({
-    date: item.date,
-    views: item.clicks || 0, // Map clicks to views
-    likes: item.likes || 0,
-    followers: item.followers || 0,
-    leads: leadsPerDate[item.date] || 0, // Get leads count for this date
-    cost: item.cost || 0,
-    weekday: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })
-  }))
+  const processedData = xiaowangTestData.dailyData.map((item: any, index: number) => {
+    return {
+      date: item.date,
+      views: item.clicks || 0, // Map clicks to views
+      likes: item.likes || 0,
+      followers: item.followers || 0,
+      leads: leadsPerDate[item.date] || 0, // Get leads count for this date
+      cost: item.cost || 0,
+      weekday: new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })
+    }
+  })
 
-  return processedData.sort((a, b) => a.date.localeCompare(b.date))
+  return processedData.sort((a, b) => {
+    const dateA = typeof a.date === 'string' ? a.date : String(a.date);
+    const dateB = typeof b.date === 'string' ? b.date : String(b.date);
+    return dateA.localeCompare(dateB);
+  })
 }
 
 // Process data grouped by weekday (for non-7-day ranges)
@@ -605,7 +604,7 @@ export function XiaowangTestCostAnalysis({
         totalMetric = rawData.reduce((sum, item) => sum + item.likes, 0)
         break
       case 'followers':
-        totalMetric = rawData.reduce((sum, item) => sum + item.followers, 0)
+        totalMetric = rawData.reduce((sum, item) => sum + (item.followers || 0), 0)
         break
       case 'leads':
         // For leads, we need to calculate from brokerData
@@ -677,7 +676,7 @@ export function XiaowangTestCostAnalysis({
         totalMetric = rawData.reduce((sum, item) => sum + item.likes, 0)
         break
       case 'followers':
-        totalMetric = rawData.reduce((sum, item) => sum + item.followers, 0)
+        totalMetric = rawData.reduce((sum, item) => sum + (item.followers || 0), 0)
         break
       case 'leads':
         // For leads, we need to calculate from brokerData

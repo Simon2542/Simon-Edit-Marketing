@@ -92,7 +92,11 @@ function processXiaowangTestCostData(xiaowangTestData: any, brokerData: any[]): 
     }
   })
 
-  return processedData.sort((a, b) => a.date.localeCompare(b.date))
+  return processedData.sort((a, b) => {
+    const dateA = typeof a.date === 'string' ? a.date : String(a.date);
+    const dateB = typeof b.date === 'string' ? b.date : String(b.date);
+    return dateA.localeCompare(dateB);
+  })
 }
 
 // Process data grouped by weekday (for non-7-day ranges)

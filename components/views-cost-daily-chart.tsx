@@ -41,7 +41,11 @@ type MetricType = 'views' | 'likes' | 'followers'
 
 // Process data for daily metrics and cost
 function processDailyData(data: LifeCarDailyData[]): DailyData[] {
-  const sortedData = [...data].sort((a, b) => a.date.localeCompare(b.date))
+  const sortedData = [...data].sort((a, b) => {
+    const dateA = typeof a.date === 'string' ? a.date : String(a.date);
+    const dateB = typeof b.date === 'string' ? b.date : String(b.date);
+    return dateA.localeCompare(dateB);
+  })
   
   return sortedData.map(item => ({
     date: item.date,

@@ -40,7 +40,11 @@ type MetricType = 'costPerFollower' | 'costPerClick' | 'costPerLike'
 
 // Process data for daily cost metrics
 function processDailyData(data: LifeCarDailyData[]): DailyData[] {
-  const sortedData = [...data].sort((a, b) => a.date.localeCompare(b.date))
+  const sortedData = [...data].sort((a, b) => {
+    const dateA = typeof a.date === 'string' ? a.date : String(a.date);
+    const dateB = typeof b.date === 'string' ? b.date : String(b.date);
+    return dateA.localeCompare(dateB);
+  })
   
   return sortedData.map(item => ({
     date: item.date,

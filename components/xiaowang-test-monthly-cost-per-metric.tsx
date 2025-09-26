@@ -175,11 +175,15 @@ function CustomCostLabel(props: any) {
 }
 
 // Custom tooltip component
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, notesMonthlyCount }: any) {
   if (active && payload && payload.length) {
+    // Get posts count for this month
+    const postsCount = notesMonthlyCount && notesMonthlyCount[label] ? notesMonthlyCount[label] : 0
+
     return (
       <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg p-3">
         <p className="font-semibold text-gray-900 mb-2">{`Month: ${label}`}</p>
+        <p className="text-sm text-blue-600 mb-2">{`📝 Posts: ${postsCount}`}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
             {`${entry.name}: $${entry.value.toFixed(3)}`}
@@ -490,7 +494,7 @@ export function XiaowangTestMonthlyCostPerMetric({
                 }}
               />
 
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={(props) => <CustomTooltip {...props} notesMonthlyCount={notesMonthlyCount} />} />
               <Legend />
 
               {/* Average Reference Line */}

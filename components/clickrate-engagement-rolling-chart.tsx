@@ -22,7 +22,11 @@ interface RollingAverageData {
 
 // Calculate 7-day rolling average (7 days before, 0 days after) - Same algorithm as other charts
 function calculateRollingAverage(data: LifeCarDailyData[]): RollingAverageData[] {
-  const sortedData = [...data].sort((a, b) => a.date.localeCompare(b.date))
+  const sortedData = [...data].sort((a, b) => {
+    const dateA = typeof a.date === 'string' ? a.date : String(a.date);
+    const dateB = typeof b.date === 'string' ? b.date : String(b.date);
+    return dateA.localeCompare(dateB);
+  })
   const result: RollingAverageData[] = []
   
   for (let i = 0; i < sortedData.length; i++) {

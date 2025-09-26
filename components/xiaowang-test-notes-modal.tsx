@@ -32,7 +32,13 @@ export function XiaoWangTestNotesModal({ isOpen, onClose, onDateSelect, selected
     if (isOpen) {
       // 优先使用父组件传递的数据
       if (initialData && initialData.length > 0) {
-        setNotes(initialData)
+        // 排序数据：按发布时间从晚到早
+        const sortedInitialData = [...initialData].sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedInitialData)
         setDataSource('uploaded')
         setError(null)
       } else {
@@ -65,7 +71,13 @@ export function XiaoWangTestNotesModal({ isOpen, onClose, onDateSelect, selected
       }
       const result = await response.json()
       if (result.success) {
-        setNotes(result.data)
+        // 排序数据：按发布时间从晚到早
+        const sortedData = (result.data || []).sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedData)
         setDataSource(result.source || null)
       } else {
         throw new Error(result.error || 'Unknown error')
@@ -101,7 +113,13 @@ export function XiaoWangTestNotesModal({ isOpen, onClose, onDateSelect, selected
       console.log('Upload response:', result)
       if (result.success) {
         console.log('Setting notes data:', result.data.length, 'notes')
-        setNotes(result.data)
+        // 排序数据：按发布时间从晚到早
+        const sortedData = (result.data || []).sort((a, b) => {
+          const dateA = new Date(a.发布时间).getTime()
+          const dateB = new Date(b.发布时间).getTime()
+          return dateB - dateA
+        })
+        setNotes(sortedData)
         setDataSource('uploaded')
         // Notify parent component of data update
         if (onDataUpdate) {
@@ -263,7 +281,14 @@ export function XiaoWangTestNotesModal({ isOpen, onClose, onDateSelect, selected
               </div>
 
               {/* Table Rows */}
-              {notes.map((note, index) => (
+              {notes
+                .sort((a, b) => {
+                  // 按发布时间从晚到早排序
+                  const dateA = new Date(a.发布时间).getTime()
+                  const dateB = new Date(b.发布时间).getTime()
+                  return dateB - dateA
+                })
+                .map((note, index) => (
                 <div
                   key={index}
                   className="grid grid-cols-12 gap-4 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"

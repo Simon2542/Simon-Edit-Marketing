@@ -135,7 +135,7 @@ export function parseLifeCarData(csvText: string): LifeCarDailyData[] {
 // 按月聚合数据
 export function aggregateByMonth(dailyData: LifeCarDailyData[]): LifeCarMonthlyData[] {
   const monthlyMap: Record<string, LifeCarDailyData[]> = {}
-  
+
   dailyData.forEach(item => {
     const month = item.date.substring(0, 7) // YYYY-MM
     if (!monthlyMap[month]) {
@@ -170,7 +170,7 @@ export function aggregateByMonth(dailyData: LifeCarDailyData[]): LifeCarMonthlyD
 // 按周聚合数据
 export function aggregateByWeek(dailyData: LifeCarDailyData[]): LifeCarWeeklyData[] {
   const weeklyMap: Record<string, LifeCarDailyData[]> = {}
-  
+
   dailyData.forEach(item => {
     const date = new Date(item.date)
     const year = date.getFullYear()

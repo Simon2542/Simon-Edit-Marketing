@@ -184,11 +184,15 @@ function SmartCostLabel(props: any) {
 }
 
 // Custom tooltip component
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, notesWeeklyCount }: any) {
   if (active && payload && payload.length) {
+    // Get posts count for this week
+    const postsCount = notesWeeklyCount && notesWeeklyCount[label] ? notesWeeklyCount[label] : 0
+
     return (
       <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg p-3">
         <p className="font-semibold text-gray-900 mb-2">{`Week: ${label}`}</p>
+        <p className="text-sm text-blue-600 mb-2">{`📝 Posts: ${postsCount}`}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} style={{ color: entry.color }} className="text-sm">
             {`${entry.name}: $${entry.value.toFixed(3)}`}
@@ -516,6 +520,11 @@ export function XiaowangTestWeeklyCostPerMetric({
                     </g>
                   )
                 }}
+                interval={
+                  displayData.length <= 12 ? 0 :
+                  displayData.length <= 20 ? 1 :
+                  displayData.length <= 30 ? 2 : 3
+                }
                 height={100}
                 scale="point"
                 padding={{ left: 30, right: 30 }}
@@ -532,7 +541,7 @@ export function XiaowangTestWeeklyCostPerMetric({
                 }}
               />
 
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={(props) => <CustomTooltip {...props} notesWeeklyCount={notesWeeklyCount} />} />
               <Legend />
 
               {/* Average Reference Line */}

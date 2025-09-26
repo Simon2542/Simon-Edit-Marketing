@@ -131,7 +131,7 @@ async function processExcelBuffer(buffer: Buffer) {
 async function processWorkbook(workbook: XLSX.WorkBook) {
   
   console.log('Available sheets:', workbook.SheetNames);
-  
+
   // Process different sheets and generate corresponding JSON files
   const results = {
     broker_data: [] as any[],
@@ -140,14 +140,28 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
     daily_cost_data: [] as any[]
   };
 
+  console.log('DEBUG: Starting to process broker data...');
+
   // Process broker data from main sheet
   const clientSheetName = "Clients_info（new）";
   if (workbook.Sheets[clientSheetName]) {
     console.log('Processing client data...');
     try {
       const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[clientSheetName]);
-      console.log(`Found ${rawData.length} raw client records`);
-      
+      console.log(`=== 单个上传 原始Excel读取数据 ===`);
+      console.log(`单个上传 Excel总行数: ${rawData.length}`);
+      console.log('单个上传 Excel原始数据前3行:', rawData.slice(0, 3));
+      console.log('单个上传 Excel可用列名:', Object.keys(rawData[0] || {}));
+      console.log('单个上传 Excel第一行完整数据:', rawData[0]);
+
+      // 检查Excel中实际的broker分布 (原始数据)
+      const rawBrokerCounts = {};
+      rawData.forEach((row, index) => {
+        const rawBroker = row['Broker'] || row.broker || 'EMPTY';
+        rawBrokerCounts[rawBroker] = (rawBrokerCounts[rawBroker] || 0) + 1;
+      });
+      console.log('单个上传 Excel原始broker分布:', rawBrokerCounts);
+
       // Transform data to match expected format
       const clientData = rawData.map((item: any) => ({
         no: item['No.'] || item.no,
@@ -164,16 +178,50 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
       throw new Error(`Failed to process client data: ${error.message}`);
     }
   } else {
-    console.log(`Sheet "${clientSheetName}" not found. Available sheets:`, workbook.SheetNames);
+    console.log(`DEBUG: Sheet "${clientSheetName}" not found!`);
+    console.log('DEBUG: Available sheets:', workbook.SheetNames);
+    console.log('DEBUG: Looking for alternative sheet names...');
+
+    // Try to find any sheet with "client" in the name
+    const alternativeSheet = workbook.SheetNames.find(name =>
+      name.toLowerCase().includes('client') ||
+      name.toLowerCase().includes('info')
+    );
+
+    if (alternativeSheet) {
+      console.log(`DEBUG: Found alternative sheet: ${alternativeSheet}`);
+      console.log('DEBUG: Processing alternative sheet...');
+      try {
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[alternativeSheet]);
+        console.log(`DEBUG: Found ${rawData.length} raw client records in alternative sheet`);
+
+        // Transform data to match expected format
+        const clientData = rawData.map((item: any) => ({
+          no: item['No.'] || item.no,
+          broker: item['Broker'] || item.broker,
+          date: item['日期'] || item.date,
+          wechat: item['微信'] || item.wechat,
+          source: item['来源'] || item.source
+        }));
+
+        results.broker_data = clientData;
+        console.log(`DEBUG: Processed ${clientData.length} broker records from alternative sheet`);
+        console.log('DEBUG: Sample data:', clientData.slice(0, 2));
+      } catch (error: any) {
+        console.error('DEBUG: Error processing alternative sheet:', error.message);
+      }
+    } else {
+      console.log('DEBUG: No alternative sheet found');
+    }
   }
 
-  // Process weekly data - use data directly from weekly_data sheet
+  // Process weekly data - use data directly from weekly_data sheet OR generate from broker_data
   const weeklySheetName = "weekly_data";
-  
+
   if (workbook.Sheets[weeklySheetName]) {
     console.log('Processing weekly_data sheet...');
     const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[weeklySheetName]);
-    
+
     // Transform data to match expected format - directly from weekly_data sheet
     const weeklyData = rawData.map((item: any) => ({
       week: item['Week'] || item.week,
@@ -181,7 +229,7 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
       leadsTotal: item['Leads总数'] || item.leadsTotal || 0,  // C列
       leadsPrice: item['Leads单价（aud）'] || item.leadsPrice || 0
     }));
-    
+
     // Sort by week chronologically
     weeklyData.sort((a, b) => {
       const parseWeek = (week: string) => {
@@ -195,30 +243,67 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
       };
       return parseWeek(a.week) - parseWeek(b.week);
     });
-    
+
     // Process weekly data without generating estimates
     const processedWeeklyData = processWeeklyData(weeklyData);
-    
+
     results.weekly_data = processedWeeklyData;
-    
+
     const totalLeads = processedWeeklyData.reduce((sum, w) => sum + w.leadsTotal, 0);
     console.log(`Processed weekly data: ${processedWeeklyData.length} weeks, ${totalLeads} total leads`);
-    
+
     console.log(`Processed ${processedWeeklyData.length} weekly records`);
+  } else if (results.broker_data && results.broker_data.length > 0) {
+    // Generate weekly data from broker_data if weekly_data sheet is missing
+    console.log('weekly_data sheet not found, generating from broker_data...');
+    const weeklyMap = new Map();
+
+    results.broker_data.forEach((client: any, index: number) => {
+      const clientDate = parseExcelDate(client.date);
+      console.log(`Processing client ${index}: date=${client.date}, parsedDate=${clientDate}`);
+
+      if (clientDate) {
+        const week = getWeekString(clientDate);
+        console.log(`Client ${index}: week=${week}`);
+
+        if (!weeklyMap.has(week)) {
+          weeklyMap.set(week, {
+            week,
+            totalCost: 0,
+            leadsTotal: 0,
+            leadsPrice: 0
+          });
+          console.log(`Created new week entry: ${week}`);
+        }
+
+        const weekData = weeklyMap.get(week);
+        weekData.leadsTotal += 1; // Each broker record counts as 1 lead
+        console.log(`Updated week ${week}: leadsTotal=${weekData.leadsTotal}`);
+      } else {
+        console.log(`Client ${index}: failed to parse date`);
+      }
+    });
+
+    results.weekly_data = Array.from(weeklyMap.values()).sort((a, b) =>
+      a.week.localeCompare(b.week)
+    );
+
+    console.log(`Generated ${results.weekly_data.length} weekly records from broker_data`);
+    console.log('Final weekly data:', results.weekly_data);
   }
 
   // Process monthly data - combine cost data with actual client counts
   const monthlySheetName = "monthly_data";
-  
+
   let monthlyData = [];
-  
+
   if (workbook.Sheets[monthlySheetName]) {
     console.log('Processing monthly data...');
     const costData = XLSX.utils.sheet_to_json(workbook.Sheets[monthlySheetName]);
-    
+
     // Calculate actual monthly counts from broker_data (Clients_info)
     const monthlyClientCounts: { [month: string]: number } = {};
-    
+
     if (results.broker_data && results.broker_data.length > 0) {
       results.broker_data.forEach((client: any) => {
         const clientDate = parseExcelDate(client.date);
@@ -231,19 +316,19 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
       });
       console.log('Monthly client counts from Clients_info:', monthlyClientCounts);
     }
-    
+
     // Merge cost data with actual client counts
     monthlyData = costData.map((costItem: any) => {
       const month = costItem['月份'] || costItem.month;
       const actualCount = monthlyClientCounts[month] || 0;
-      
+
       return {
         month: month,
         cost: costItem['消费总额（aud)'] || costItem.cost || 0,
         count: actualCount  // Use actual count from Clients_info
       };
     });
-    
+
     // Also add any months that have clients but no cost data
     Object.keys(monthlyClientCounts).forEach(month => {
       if (!monthlyData.find((m: any) => m.month === month)) {
@@ -254,15 +339,45 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
         });
       }
     });
-    
+
     // Sort by month
     monthlyData.sort((a: any, b: any) => {
       return a.month.localeCompare(b.month);
     });
-    
+
     results.monthly_data = monthlyData;
-    
+
     console.log(`Processed ${monthlyData.length} monthly records with actual client counts`);
+  } else if (results.broker_data && results.broker_data.length > 0) {
+    // Generate monthly data from broker_data if monthly_data sheet is missing
+    console.log('monthly_data sheet not found, generating from broker_data...');
+    const monthlyClientCounts: { [month: string]: number } = {};
+
+    results.broker_data.forEach((client: any) => {
+      const clientDate = parseExcelDate(client.date);
+      if (clientDate) {
+        const year = clientDate.getFullYear();
+        const month = clientDate.getMonth() + 1;
+        const monthKey = `${year}/${month.toString().padStart(2, '0')}`;
+        monthlyClientCounts[monthKey] = (monthlyClientCounts[monthKey] || 0) + 1;
+      }
+    });
+
+    // Create monthly data from counts
+    monthlyData = Object.keys(monthlyClientCounts).map(month => ({
+      month: month,
+      cost: 0,  // No cost data available
+      count: monthlyClientCounts[month]
+    }));
+
+    // Sort by month
+    monthlyData.sort((a: any, b: any) => {
+      return a.month.localeCompare(b.month);
+    });
+
+    results.monthly_data = monthlyData;
+
+    console.log(`Generated ${monthlyData.length} monthly records from broker_data`);
   }
 
   // Process daily cost data if exists (using database_marketing sheet)
@@ -270,15 +385,44 @@ async function processWorkbook(workbook: XLSX.WorkBook) {
   if (workbook.Sheets[dailySheetName]) {
     console.log('Processing daily cost data...');
     const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[dailySheetName]);
-    
+
     const dailyData = rawData.map((item: any) => ({
       date: item['时间'] || item.date,
       cost: ((item['消费'] || item.cost || 0) / 4.72) // Convert to AUD by dividing by 4.72
     }));
-    
+
     results.daily_cost_data = dailyData;
-    
+
     console.log(`Processed ${dailyData.length} daily cost records`);
+  } else if (results.broker_data && results.broker_data.length > 0) {
+    // Generate daily data from broker_data if database_marketing sheet is missing
+    console.log('database_marketing sheet not found, generating daily data from broker_data...');
+    const dailyCountsMap = new Map();
+
+    results.broker_data.forEach((client: any) => {
+      const clientDate = parseExcelDate(client.date);
+      if (clientDate) {
+        const dateKey = clientDate.toISOString().split('T')[0];
+
+        if (!dailyCountsMap.has(dateKey)) {
+          dailyCountsMap.set(dateKey, 0);
+        }
+        dailyCountsMap.set(dateKey, dailyCountsMap.get(dateKey) + 1);
+      }
+    });
+
+    // Create daily cost data (with 0 cost since we don't have cost info)
+    const dailyData = Array.from(dailyCountsMap.entries()).map(([date, count]) => ({
+      date: date,
+      cost: 0  // No cost data available, just counting leads
+    }));
+
+    // Sort by date
+    dailyData.sort((a, b) => a.date.localeCompare(b.date));
+
+    results.daily_cost_data = dailyData;
+
+    console.log(`Generated ${dailyData.length} daily records from broker_data`);
   }
 
   console.log('Excel processing completed');
