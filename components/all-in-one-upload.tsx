@@ -157,7 +157,7 @@ export function AllInOneUpload({ onUploadSuccess }: AllInOneUploadProps) {
           <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">测试阶段</span>
         </CardTitle>
         <p className="text-sm text-gray-600 mt-2">
-          Upload a single file containing all data: XiaoWang (Leads, Advertising, Notes) and LifeCar (Data, Notes)
+          Upload a single file containing all data: XiaoWang (Leads, Advertising, Posts) and LifeCar (Data, Posts)
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -292,11 +292,8 @@ export function AllInOneUpload({ onUploadSuccess }: AllInOneUploadProps) {
             <li>Sheet "Lifecar投放" - LifeCar Advertising Data</li>
             <li>Sheet "Lifecar笔记" - LifeCar Posts Data</li>
           </ul>
-          <p className="mt-2 text-yellow-600">
-            <strong>测试阶段:</strong> 使用 Session Break 存储数据，数据仅在当前会话中有效。
-          </p>
           <p className="text-xs text-blue-600 mt-1">
-            数据映射: client_info → 小王Broker数据库, 小王投放 → 小王广告数据, 小王笔记 → 小王内容数据, LifeCar投放 → LifeCar广告数据, LifeCar笔记 → LifeCar内容数据
+            数据映射: client_info → Leads数据库, 小王投放 → 小王投放数据, 小王笔记 → 小王笔记数据, LifeCar投放 → LifeCar投放数据, LifeCar笔记 → LifeCar笔记数据
           </p>
         </div>
       </CardContent>
